@@ -1,0 +1,96 @@
+================================================================================
+ARCHITECTURE DESIGN: MULTI-CURRENCY PAYMENT SYSTEM (CLEAN ARCHITECTURE)
+================================================================================
+
+1. AUTHENTICATION & SECURITY
+----------------------------
+* Channel Validation: 
+    - Incoming requests checked against 'appsettings' (ChannelCredentials).
+    - Logic: IF (Request.SourceCredentials == AppSettings.Credentials) ALLOW ELSE DENY.
+* Transaction Authorization:
+    - TransactionPin required for every transfer request.
+
+2. SYSTEM ENTITIES (CORE MODELS)
+--------------------------------
+* Users: Auth and Profile data including customer Id.
+* Accounts: CustomerId, Account related data and available amount, account status, etc
+* Transfers: Main transaction log (ID, Status, PaymentRef, AuditPayload).
+* Rates: CCY record - FromCcy, ToCcy, SellRate, BuyRate, RateDate.
+* TransientAccountTransactions: Ledger for the Suspense Account movements.
+
+3. API ENDPOINTS
+----------------
+* POST /getAccount          -> { accountnumber }
+* GET  /getparticipantbanks -> returns List<Bank>
+* POST /validateaccount     -> { accountnumber, bankcode }
+* POST /getccyrates         -> { amount, fromCcy, toCcy }
+* GET  /getcharges          -> ?ccy=USD&amount=100
+* POST /intratransfer       -> (Internal Transfer Payload)
+* POST /intertransfers      -> (External Transfer Payload + bankcode)
+
+4. TRANSFER BUSINESS LOGIC (USE CASE)
+-------------------------------------
+A. Pre-Processing:
+   - Validate ChannelCode & TransactionPin.
+   - Validate Debit Account & Beneficiary (Account number/Bank code).
+   - Check Available Balance >= (Amount + Charges + VAT).
+     * Charges: Static (from AppSettings).
+     * VAT: 7.5% of Amount (in Sender's CCY).
+
+B. Persistence (State Management):
+   - Create Transfer record (Status: PENDING).
+   - Store full Request Body as a Serialized String in 'audit_payload' column.
+
+C. Fund Movement (Suspense Account Pattern):
+   - IF (DebitCCY == CreditCCY):
+     1. Debit Sender (Amount + Charges + VAT).
+     2. Credit Suspense Account (Amount).
+     3. Credit Beneficiary from Suspense Account.
+
+   - IF (DebitCCY != CreditCCY):
+     IF (isAmountInBeneficiaryCurrency == true):
+       1. Convert Target Amount -> Sender CCY.
+       2. Debit Sender (ConvertedAmount equivalence in their own account ccy + Charges + VAT).
+       3. Credit Beneficiary exact Target Amount via Suspense.
+     ELSE (isAmountInBeneficiaryCurrency == false):
+       1. Debit Sender (Amount + Charges + VAT).
+       2. Convert Amount -> Beneficiary CCY (convertedAmount).
+       3. Credit Beneficiary 'convertedAmount' via Suspense.
+
+D. Post-Processing:
+   - Generate unique PaymentReference.
+   - Update 'Transfers' table status to SUCCESS.
+   - Update 'TransientAccountTransactions' with the PaymentReference.
+
+5. CLEAN ARCHITECTURE STRUCTURE
+-------------------------------
+/internal
+  /domain       <- Entities (User, Transfer, Account) + Logic Interfaces
+  /usecase      <- TransferService (The logic above lives here)
+  /adapter
+    /http       <- API Handlers (Gin/Fiber) + Channel Auth Middleware
+    /repository <- Postgres Implementation (SQL Transactions)
+    /config     <- AppSettings/Environment Loader
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+Customer interacts with the API via a channel - channel auth is done to validate source - use a appsettings for this (if channel credentials is same as what is in the appsettings, allow, else, deny)
+Customer fills transfer form - channelcode, transactioncode(CCY), transactionReference, debitaccountname, debitaccountnumber, debitaccountccy, amount, beneficiaryname, creditaccountnumber, creditaccountccy, narration, isamountinbeneficiarycurrency (bool), transactionpin
+validations - Channelcode validation is done. transactionpin validation is done. Debit account number validation is done. Available amount validation is done + charges + vat is done. Beneficiary account number validation is done. if all validations are successful, create a record of the transaction with paymentstatus to maintain the state. as part of transaction record that was created, the full payload must be persisted too as a serialized string in a column for audit purposes.
+If debit account currency and credit account currency are the same, move funds into a fcy suspense account and then credit beneficiary from the suspense account.
+If debit account and credit account currencies are different, check isamountinbeneficiarycurrency. if isamountinbeneficiarycurrency is true, call the rate conversion method to convert the amount to the ccy of the debit account and debit that amount + charges + vat from the debit account into a suspense account. then credit the beneficiary from the suspense account. if the isamountinbeneficiarycurrency is false, convert the amount into the credit account ccy and keep the value in a variable called convertedAmount, then debit the debitaccount of the amount + charges + vat, and credit the suspense account with this. then credit the beneficiary form the suspense account of the convertedAmount.
+charges will be static and maintainable in the appsettings. vat will be 7.5% of amount in sender's currency
+Endpoint required - getAccount(accountname as payload), getparticipantbanks(), validateaccount(accountnumber and bankcode as payload)-this is for beneficiary account number, getccyrates(amount, FromCurrency and ToCurrency as payload), getcharges(ccy, amount), intratransfer(refer to item 2 for payload), intertransfers(refer to item 2 for payload and include beneficiary bankcode)
+suspense account debit and credit transactions must be created as transaction records as well on TransientAccountTransactions
+Entities required are - Users, Transfers, Rates, TransientAccountTransactions
+once transfer is successful, a payment reference must be generated and updated to the Transfers table and TransientAccountTransactions
