@@ -6,16 +6,20 @@ import (
 )
 
 func registerSwaggerRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/", http.StatusMovedPermanently)
+	})
+
+	mux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, swaggerHTML, "/swagger/openapi.json")
+	})
+
 	mux.HandleFunc("/swagger/openapi.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(openAPI))
-	})
-
-	mux.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(w, swaggerHTML, "/swagger/openapi.json")
 	})
 }
 
@@ -47,7 +51,7 @@ const openAPI = `{
     "version": "1.0.0"
   },
   "paths": {
-    "/accounts": {
+    "/create-account": {
       "post": {
         "summary": "Create account",
         "security": [
