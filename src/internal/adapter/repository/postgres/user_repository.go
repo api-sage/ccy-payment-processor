@@ -75,6 +75,48 @@ WHERE id = $1`
 	return user, nil
 }
 
+func (r *UserRepository) Update(ctx context.Context, user domain.User) (domain.User, error) {
+	const query = `
+UPDATE users
+SET customer_id = $2,
+	first_name = $3,
+	middle_name = $4,
+	last_name = $5,
+	dob = $6,
+	phone_number = $7,
+	id_type = $8,
+	id_number = $9,
+	kyc_level = $10,
+	transaction_pin_has = $11,
+	updated_at = NOW()
+WHERE id = $1
+RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_has, created_at, updated_at`
+
+	var updated domain.User
+	if err := scanUser(r.db.QueryRowContext(
+		ctx,
+		query,
+		user.ID,
+		user.CustomerID,
+		user.FirstName,
+		user.MiddleName,
+		user.LastName,
+		user.DOB,
+		user.PhoneNumber,
+		user.IDType,
+		user.IDNumber,
+		user.KYCLevel,
+		user.TransactionPinHas,
+	), &updated); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.User{}, fmt.Errorf("user not found: %w", err)
+		}
+		return domain.User{}, fmt.Errorf("update user: %w", err)
+	}
+
+	return updated, nil
+}
+
 func scanUser(row rowScanner, user *domain.User) error {
 	return row.Scan(
 		&user.ID,
