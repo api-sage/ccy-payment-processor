@@ -96,6 +96,32 @@ func (s *UserService) GetUser(ctx context.Context, id string) (models.Response[m
 	return models.SuccessResponse("user fetched successfully", response), nil
 }
 
+func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin string) (bool, error) {
+	customerID = strings.TrimSpace(customerID)
+	pin = strings.TrimSpace(pin)
+
+	if customerID == "" {
+		return false, fmt.Errorf("customerId is required")
+	}
+	if pin == "" {
+		return false, fmt.Errorf("pin is required")
+	}
+
+	storedPinHash, err := s.userRepo.GetTransactionPinHashByCustomerID(ctx, customerID)
+	if err != nil {
+		return false, err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(storedPinHash), []byte(pin)); err != nil {
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return false, nil
+		}
+		return false, fmt.Errorf("verify user pin: %w", err)
+	}
+
+	return true, nil
+}
+
 func generateCustomerID() string {
 	return fmt.Sprintf("%010d", time.Now().UnixNano()%10_000_000_000)
 }
