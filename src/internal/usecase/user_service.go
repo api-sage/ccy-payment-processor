@@ -8,6 +8,7 @@ import (
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/models"
 	"github.com/api-sage/ccy-payment-processor/src/internal/domain"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -33,6 +34,11 @@ func (s *UserService) CreateUser(ctx context.Context, req models.CreateUserReque
 		middleName = &trimmed
 	}
 
+	hashedPin, err := hashTransactionPin(strings.TrimSpace(req.TransactionPinHas))
+	if err != nil {
+		return models.ErrorResponse[models.CreateUserResponse]("failed to create user", "failed to hash transaction pin"), err
+	}
+
 	user := domain.User{
 		CustomerID:        generateCustomerID(),
 		FirstName:         strings.TrimSpace(req.FirstName),
@@ -43,7 +49,7 @@ func (s *UserService) CreateUser(ctx context.Context, req models.CreateUserReque
 		IDType:            domain.IDType(strings.TrimSpace(req.IDType)),
 		IDNumber:          strings.TrimSpace(req.IDNumber),
 		KYCLevel:          req.KYCLevel,
-		TransactionPinHas: strings.TrimSpace(req.TransactionPinHas),
+		TransactionPinHas: hashedPin,
 	}
 
 	created, err := s.userRepo.Create(ctx, user)
@@ -91,5 +97,14 @@ func (s *UserService) GetUser(ctx context.Context, id string) (models.Response[m
 }
 
 func generateCustomerID() string {
-	return fmt.Sprintf("CUST%012d", time.Now().UnixNano()%1_000_000_000_000)
+	return fmt.Sprintf("%010d", time.Now().UnixNano()%10_000_000_000)
+}
+
+func hashTransactionPin(pin string) (string, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("hash transaction pin: %w", err)
+	}
+
+	return string(hashed), nil
 }
