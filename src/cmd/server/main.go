@@ -42,7 +42,7 @@ func main() {
 	userService := usecase.NewUserService(userRepo)
 	userController := controller.NewUserController(userService)
 
-	mux := router.New(accountController, userController, middleware.ChannelAuth(cfg.ChannelID, cfg.ChannelKey))
+	mux := router.New(accountController, userController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
 
 	port := os.Getenv("PORT")
 	if port == "" {

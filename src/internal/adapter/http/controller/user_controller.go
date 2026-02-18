@@ -26,7 +26,7 @@ func (c *UserController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(
 	if authMiddleware != nil {
 		handler = authMiddleware(handler).ServeHTTP
 	}
-	mux.Handle("/users", http.HandlerFunc(handler))
+	mux.Handle("/create-user", http.HandlerFunc(handler))
 }
 
 func (c *UserController) createUser(w http.ResponseWriter, r *http.Request) {
