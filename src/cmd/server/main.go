@@ -9,6 +9,7 @@ import (
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/controller"
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/middleware"
+	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/router"
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/repository/postgres"
 	"github.com/api-sage/ccy-payment-processor/src/internal/config"
 	"github.com/api-sage/ccy-payment-processor/src/internal/usecase"
@@ -37,8 +38,7 @@ func main() {
 	accountService := usecase.NewAccountService(accountRepo)
 	accountController := controller.NewAccountController(accountService)
 
-	mux := http.NewServeMux()
-	accountController.RegisterRoutes(mux, middleware.ChannelAuth(cfg.ChannelID, cfg.ChannelKey))
+	mux := router.New(accountController, middleware.ChannelAuth(cfg.ChannelID, cfg.ChannelKey))
 
 	port := os.Getenv("PORT")
 	if port == "" {
