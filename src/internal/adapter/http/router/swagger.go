@@ -51,7 +51,7 @@ const openAPI = `{
     "version": "1.0.0"
   },
   "paths": {
-    "/accounts": {
+    "/create-account": {
       "post": {
         "summary": "Create account",
         "security": [
@@ -84,7 +84,7 @@ const openAPI = `{
         }
       }
     },
-    "/users": {
+    "/create-user": {
       "post": {
         "summary": "Create user",
         "security": [
