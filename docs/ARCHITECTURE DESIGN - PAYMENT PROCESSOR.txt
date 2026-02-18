@@ -2,6 +2,36 @@
 ARCHITECTURE DESIGN: MULTI-CURRENCY PAYMENT SYSTEM (CLEAN ARCHITECTURE)
 ================================================================================
 
+ccy-payment-processor/src/
+├── cmd/
+│   └── server/
+│       └── main.go            # Entry point: Wires up the App, DB, and Routes
+├── internal/
+│   ├── adapter/               # EXTERNAL INTERFACES (Implementation details)
+│   │   ├── http/
+│   │   │   ├── handler.go     # API Endpoints (Intra/Inter transfer, etc.)
+│   │   │   ├── middleware.go  # Channel Auth Logic (AppSettings check)
+│   │   │   └── router.go      # Route registration
+│   │   └── repository/
+│   │       └── postgres.go    # SQL Transactions (Suspense Account logic)
+│   ├── config/
+│   │   └── config.go          # AppSettings loader (Viper)
+│   ├── domain/                # THE CORE (Business Entities & Interfaces)
+│   │   ├── account.go         # Account structs
+│   │   ├── transfer.go        # Transfer structs + Status constants
+│   │   └── repository.go      # Interfaces (The "Ports")
+│   └── usecase/               # BUSINESS RULES (The "Brain")
+│       └── transfer_svc.go    # VAT calculation, FX logic, & orchestration
+├── migrations/                # DATABASE EVOLUTION
+│   ├── 001_init.up.sql        # Tables: Users, Transfers, TransientTransactions
+│   └── 001_init.down.sql
+├── appsettings.json           # Configuration (Charges, VAT, Channel Creds)
+├── docker-compose.yml         # Infrastructure Orchestration
+├── Dockerfile                 # Container Recipe
+├── go.mod                     # Dependency Management
+└── README.md                  # Project Documentation
+
+
 1. AUTHENTICATION & SECURITY
 ----------------------------
 * Channel Validation: 
@@ -72,25 +102,3 @@ D. Post-Processing:
     /repository <- Postgres Implementation (SQL Transactions)
     /config     <- AppSettings/Environment Loader
 ================================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-Customer interacts with the API via a channel - channel auth is done to validate source - use a appsettings for this (if channel credentials is same as what is in the appsettings, allow, else, deny)
-Customer fills transfer form - channelcode, transactioncode(CCY), transactionReference, debitaccountname, debitaccountnumber, debitaccountccy, amount, beneficiaryname, creditaccountnumber, creditaccountccy, narration, isamountinbeneficiarycurrency (bool), transactionpin
-validations - Channelcode validation is done. transactionpin validation is done. Debit account number validation is done. Available amount validation is done + charges + vat is done. Beneficiary account number validation is done. if all validations are successful, create a record of the transaction with paymentstatus to maintain the state. as part of transaction record that was created, the full payload must be persisted too as a serialized string in a column for audit purposes.
-If debit account currency and credit account currency are the same, move funds into a fcy suspense account and then credit beneficiary from the suspense account.
-If debit account and credit account currencies are different, check isamountinbeneficiarycurrency. if isamountinbeneficiarycurrency is true, call the rate conversion method to convert the amount to the ccy of the debit account and debit that amount + charges + vat from the debit account into a suspense account. then credit the beneficiary from the suspense account. if the isamountinbeneficiarycurrency is false, convert the amount into the credit account ccy and keep the value in a variable called convertedAmount, then debit the debitaccount of the amount + charges + vat, and credit the suspense account with this. then credit the beneficiary form the suspense account of the convertedAmount.
-charges will be static and maintainable in the appsettings. vat will be 7.5% of amount in sender's currency
-Endpoint required - getAccount(accountname as payload), getparticipantbanks(), validateaccount(accountnumber and bankcode as payload)-this is for beneficiary account number, getccyrates(amount, FromCurrency and ToCurrency as payload), getcharges(ccy, amount), intratransfer(refer to item 2 for payload), intertransfers(refer to item 2 for payload and include beneficiary bankcode)
-suspense account debit and credit transactions must be created as transaction records as well on TransientAccountTransactions
-Entities required are - Users, Transfers, Rates, TransientAccountTransactions
-once transfer is successful, a payment reference must be generated and updated to the Transfers table and TransientAccountTransactions
