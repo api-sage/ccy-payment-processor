@@ -8,6 +8,7 @@ type AccountRouteRegistrar interface {
 
 func New(accountController AccountRouteRegistrar, authMiddleware func(http.Handler) http.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
+	registerSwaggerRoutes(mux)
 
 	if accountController != nil {
 		accountController.RegisterRoutes(mux, authMiddleware)
