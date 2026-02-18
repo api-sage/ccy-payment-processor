@@ -96,30 +96,36 @@ func (s *UserService) GetUser(ctx context.Context, id string) (models.Response[m
 	return models.SuccessResponse("user fetched successfully", response), nil
 }
 
-func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin string) (bool, error) {
+func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin string) (models.Response[models.VerifyUserPinResponse], error) {
 	customerID = strings.TrimSpace(customerID)
 	pin = strings.TrimSpace(pin)
 
 	if customerID == "" {
-		return false, fmt.Errorf("customerId is required")
+		return models.ErrorResponse[models.VerifyUserPinResponse]("validation failed", "customerId is required"), fmt.Errorf("customerId is required")
 	}
 	if pin == "" {
-		return false, fmt.Errorf("pin is required")
+		return models.ErrorResponse[models.VerifyUserPinResponse]("validation failed", "pin is required"), fmt.Errorf("pin is required")
 	}
 
 	storedPinHash, err := s.userRepo.GetTransactionPinHashByCustomerID(ctx, customerID)
 	if err != nil {
-		return false, err
+		return models.ErrorResponse[models.VerifyUserPinResponse]("failed to verify pin", err.Error()), err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(storedPinHash), []byte(pin)); err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return false, nil
+			return models.ErrorResponse[models.VerifyUserPinResponse]("invalid pin", "provided pin does not match"), fmt.Errorf("invalid pin")
 		}
-		return false, fmt.Errorf("verify user pin: %w", err)
+		wrappedErr := fmt.Errorf("verify user pin: %w", err)
+		return models.ErrorResponse[models.VerifyUserPinResponse]("failed to verify pin", wrappedErr.Error()), wrappedErr
 	}
 
-	return true, nil
+	response := models.VerifyUserPinResponse{
+		CustomerID: customerID,
+		IsValidPin: true,
+	}
+
+	return models.SuccessResponse("pin verified successfully", response), nil
 }
 
 func generateCustomerID() string {
