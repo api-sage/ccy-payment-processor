@@ -112,6 +112,22 @@ const openAPI = `{
         }
       }
     },
+    "/get-participant-banks": {
+      "get": {
+        "summary": "Get participant banks",
+        "security": [
+          {
+            "ChannelID": [],
+            "ChannelKey": []
+          }
+        ],
+        "responses": {
+          "200": {"description": "Participant banks fetched"},
+          "401": {"description": "Unauthorized"},
+          "500": {"description": "Server error"}
+        }
+      }
+    },
     "/create-user": {
       "post": {
         "summary": "Create user",

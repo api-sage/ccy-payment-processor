@@ -10,6 +10,7 @@ import (
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/controller"
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/middleware"
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/router"
+	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/repository/memory"
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/repository/postgres"
 	"github.com/api-sage/ccy-payment-processor/src/internal/config"
 	"github.com/api-sage/ccy-payment-processor/src/internal/usecase"
@@ -42,7 +43,11 @@ func main() {
 	userService := usecase.NewUserService(userRepo)
 	userController := controller.NewUserController(userService)
 
-	mux := router.New(accountController, userController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
+	participantBankRepo := memory.NewParticipantBankRepository()
+	participantBankService := usecase.NewParticipantBankService(participantBankRepo)
+	participantBankController := controller.NewParticipantBankController(participantBankService)
+
+	mux := router.New(accountController, userController, participantBankController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -51,7 +56,7 @@ func main() {
 
 	addr := ":" + port
 	log.Printf("server listening on %s", addr)
-	log.Printf("registered routes: POST /create-account, GET /get-account, POST /create-user, POST /verify-pin, GET /swagger")
+	log.Printf("registered routes: POST /create-account, GET /get-account, POST /create-user, POST /verify-pin, GET /get-participant-banks, GET /swagger")
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("start http server: %v", err)
 	}
