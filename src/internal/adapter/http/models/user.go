@@ -82,3 +82,30 @@ type GetUserResponse struct {
 	CreatedAt         string  `json:"createdAt"`
 	UpdatedAt         string  `json:"updatedAt"`
 }
+
+type VerifyUserPinRequest struct {
+	CustomerID string `json:"customerId"`
+	Pin        string `json:"pin"`
+}
+
+func (r VerifyUserPinRequest) Validate() error {
+	var errs []string
+
+	if strings.TrimSpace(r.CustomerID) == "" {
+		errs = append(errs, "customerId is required")
+	}
+	if strings.TrimSpace(r.Pin) == "" {
+		errs = append(errs, "pin is required")
+	}
+
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+
+	return nil
+}
+
+type VerifyUserPinResponse struct {
+	CustomerID string `json:"customerId"`
+	IsValidPin bool   `json:"isValidPin"`
+}
