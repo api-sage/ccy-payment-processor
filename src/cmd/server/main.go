@@ -48,7 +48,11 @@ func main() {
 	participantBankService := usecase.NewParticipantBankService(participantBankRepo)
 	participantBankController := controller.NewParticipantBankController(participantBankService)
 
-	mux := router.New(accountController, userController, participantBankController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
+	rateRepo := postgres.NewRateRepository(db)
+	rateService := usecase.NewRateService(rateRepo)
+	rateController := controller.NewRateController(rateService)
+
+	mux := router.New(accountController, userController, participantBankController, rateController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -57,7 +61,7 @@ func main() {
 
 	addr := ":" + port
 	log.Printf("server listening on %s", addr)
-	log.Printf("registered routes: POST /create-account, GET /get-account, POST /create-user, POST /verify-pin, GET /get-participant-banks, GET /swagger")
+	log.Printf("registered routes: POST /create-account, GET /get-account, POST /create-user, POST /verify-pin, GET /get-participant-banks, GET /get-rates, POST /get-rate, GET /swagger")
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("start http server: %v", err)
 	}
