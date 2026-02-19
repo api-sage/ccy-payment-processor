@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS transfers (
     credit_currency CHAR(3) NOT NULL CHECK (credit_currency IN ('USD', 'EUR', 'GBP')),
     debit_amount NUMERIC(20, 2) NOT NULL,
     credit_amount NUMERIC(20, 2) NOT NULL,
-    ccy_rate NUMERIC(20, 8) NOT NULL,
+    fcy_rate NUMERIC(20, 8) NOT NULL,
     charge_amount NUMERIC(20, 2) NOT NULL DEFAULT 0,
     vat_amount NUMERIC(20, 2) NOT NULL DEFAULT 0,
     status VARCHAR(16) NOT NULL CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),

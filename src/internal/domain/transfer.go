@@ -21,7 +21,7 @@ type Transfer struct {
 	CreditCurrency       string
 	DebitAmount          string
 	CreditAmount         string
-	CcyRate              string
+	FCYRate              string
 	ChargeAmount         string
 	VATAmount            string
 	Status               TransferStatus

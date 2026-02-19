@@ -41,7 +41,7 @@ ASCII ERD
                                            |     credit_currency       |
                                            |     debit_amount          |
                                            |     credit_amount         |
-                                           |     ccy_rate              |
+                                           |     fcy_rate              |
                                            |     charge_amount         |
                                            |     vat_amount            |
                                            |     status                |
