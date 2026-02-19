@@ -78,19 +78,19 @@ func (s *UserService) GetUser(ctx context.Context, id string) (models.Response[m
 	}
 
 	response := models.GetUserResponse{
-		ID:                user.ID,
-		CustomerID:        user.CustomerID,
-		FirstName:         user.FirstName,
-		MiddleName:        user.MiddleName,
-		LastName:          user.LastName,
-		DOB:               user.DOB.Format("2006-01-02"),
-		PhoneNumber:       user.PhoneNumber,
-		IDType:            string(user.IDType),
-		IDNumber:          user.IDNumber,
-		KYCLevel:          user.KYCLevel,
-		TransactionPinHas: user.TransactionPinHash,
-		CreatedAt:         user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:         user.UpdatedAt.Format(time.RFC3339),
+		ID:                 user.ID,
+		CustomerID:         user.CustomerID,
+		FirstName:          user.FirstName,
+		MiddleName:         user.MiddleName,
+		LastName:           user.LastName,
+		DOB:                user.DOB.Format("2006-01-02"),
+		PhoneNumber:        user.PhoneNumber,
+		IDType:             string(user.IDType),
+		IDNumber:           user.IDNumber,
+		KYCLevel:           user.KYCLevel,
+		TransactionPinHash: user.TransactionPinHash,
+		CreatedAt:          user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          user.UpdatedAt.Format(time.RFC3339),
 	}
 
 	return models.SuccessResponse("user fetched successfully", response), nil

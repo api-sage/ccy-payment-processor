@@ -33,9 +33,9 @@ INSERT INTO users (
 	id_type,
 	id_number,
 	kyc_level,
-	transaction_pin_has
+	transaction_pin_hash
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_has, created_at, updated_at`
+RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_hash, created_at, updated_at`
 
 	var created domain.User
 	if err := scanUser(r.db.QueryRowContext(
@@ -60,7 +60,7 @@ RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (domain.User, error) {
 	const query = `
-SELECT id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_has, created_at, updated_at
+SELECT id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_hash, created_at, updated_at
 FROM users
 WHERE id = $1`
 
@@ -87,10 +87,10 @@ SET customer_id = $2,
 	id_type = $8,
 	id_number = $9,
 	kyc_level = $10,
-	transaction_pin_has = $11,
+	transaction_pin_hash = $11,
 	updated_at = NOW()
 WHERE id = $1
-RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_has, created_at, updated_at`
+RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number, id_type, id_number, kyc_level, transaction_pin_hash, created_at, updated_at`
 
 	var updated domain.User
 	if err := scanUser(r.db.QueryRowContext(
@@ -119,7 +119,7 @@ RETURNING id, customer_id, first_name, middle_name, last_name, dob, phone_number
 
 func (r *UserRepository) GetTransactionPinHashByCustomerID(ctx context.Context, customerID string) (string, error) {
 	const query = `
-SELECT transaction_pin_has
+SELECT transaction_pin_hash
 FROM users
 WHERE customer_id = $1`
 
