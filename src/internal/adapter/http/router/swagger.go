@@ -27,7 +27,7 @@ const swaggerHTML = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>CCY Payment Processor API Docs</title>
+  <title>FCY Payment Processor API Docs</title>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
 </head>
 <body>
@@ -47,7 +47,7 @@ const swaggerHTML = `<!doctype html>
 const openAPI = `{
   "openapi": "3.0.3",
   "info": {
-    "title": "CCY Payment Processor API",
+    "title": "FCY Payment Processor API",
     "version": "1.0.0"
   },
   "paths": {
