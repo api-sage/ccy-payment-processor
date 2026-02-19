@@ -137,6 +137,54 @@ const openAPI = `{
         }
       }
     },
+    "/get-rates": {
+      "get": {
+        "summary": "Get all rates",
+        "security": [
+          {
+            "ChannelID": [],
+            "ChannelKey": []
+          }
+        ],
+        "responses": {
+          "200": {"description": "Rates fetched"},
+          "401": {"description": "Unauthorized"},
+          "500": {"description": "Server error"}
+        }
+      }
+    },
+    "/get-rate": {
+      "post": {
+        "summary": "Get a specific rate by currency pair",
+        "security": [
+          {
+            "ChannelID": [],
+            "ChannelKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["fromCurrency", "toCurrency"],
+                "properties": {
+                  "fromCurrency": {"type": "string", "example": "USD"},
+                  "toCurrency": {"type": "string", "example": "NGN"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Rate fetched"},
+          "400": {"description": "Validation error"},
+          "401": {"description": "Unauthorized"},
+          "500": {"description": "Server error"}
+        }
+      }
+    },
     "/create-user": {
       "post": {
         "summary": "Create user",
