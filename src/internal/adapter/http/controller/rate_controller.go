@@ -11,6 +11,7 @@ import (
 type RateService interface {
 	GetRates(ctx context.Context) (models.Response[[]models.RateResponse], error)
 	GetRate(ctx context.Context, req models.GetRateRequest) (models.Response[models.RateResponse], error)
+	GetCcyRates(ctx context.Context, req models.GetCcyRatesRequest) (models.Response[models.GetCcyRatesResponse], error)
 }
 
 type RateController struct {
@@ -24,14 +25,17 @@ func NewRateController(service RateService) *RateController {
 func (c *RateController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
 	getRatesHandler := http.HandlerFunc(c.getRates)
 	getRateHandler := http.HandlerFunc(c.getRate)
+	getCcyRatesHandler := http.HandlerFunc(c.getCcyRates)
 
 	if authMiddleware != nil {
 		getRatesHandler = authMiddleware(getRatesHandler).ServeHTTP
 		getRateHandler = authMiddleware(getRateHandler).ServeHTTP
+		getCcyRatesHandler = authMiddleware(getCcyRatesHandler).ServeHTTP
 	}
 
 	mux.Handle("/get-rates", http.HandlerFunc(getRatesHandler))
 	mux.Handle("/get-rate", http.HandlerFunc(getRateHandler))
+	mux.Handle("/getccyrates", http.HandlerFunc(getCcyRatesHandler))
 }
 
 func (c *RateController) getRates(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +66,31 @@ func (c *RateController) getRate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := c.service.GetRate(r.Context(), req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if response.Message == "validation failed" {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, response)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (c *RateController) getCcyRates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, models.ErrorResponse[models.GetCcyRatesResponse]("method not allowed"))
+		return
+	}
+
+	var req models.GetCcyRatesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.ErrorResponse[models.GetCcyRatesResponse]("invalid request body", err.Error()))
+		return
+	}
+
+	response, err := c.service.GetCcyRates(r.Context(), req)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if response.Message == "validation failed" {

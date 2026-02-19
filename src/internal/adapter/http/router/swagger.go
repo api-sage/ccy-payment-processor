@@ -185,6 +185,39 @@ const openAPI = `{
         }
       }
     },
+    "/getccyrates": {
+      "post": {
+        "summary": "Get converted amount by currency pair",
+        "security": [
+          {
+            "ChannelID": [],
+            "ChannelKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount", "fromCcy", "toCcy"],
+                "properties": {
+                  "amount": {"type": "string", "example": "1500.00"},
+                  "fromCcy": {"type": "string", "example": "USD"},
+                  "toCcy": {"type": "string", "example": "NGN"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Converted rate fetched"},
+          "400": {"description": "Validation error"},
+          "401": {"description": "Unauthorized"},
+          "500": {"description": "Server error"}
+        }
+      }
+    },
     "/create-user": {
       "post": {
         "summary": "Create user",

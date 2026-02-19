@@ -30,6 +30,7 @@ func New(
 	mux.Handle("/account", http.RedirectHandler("/get-account", http.StatusMovedPermanently))
 	mux.Handle("/verify-user-pin", http.RedirectHandler("/verify-pin", http.StatusMovedPermanently))
 	mux.Handle("/getparticipantbanks", http.RedirectHandler("/get-participant-banks", http.StatusMovedPermanently))
+	mux.Handle("/get-ccy-rates", http.RedirectHandler("/getccyrates", http.StatusMovedPermanently))
 
 	if accountController != nil {
 		accountController.RegisterRoutes(mux, authMiddleware)
