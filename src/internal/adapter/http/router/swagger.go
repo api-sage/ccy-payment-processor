@@ -185,6 +185,43 @@ const openAPI = `{
         }
       }
     },
+    "/get-charges": {
+      "get": {
+        "summary": "Get charge and VAT breakdown",
+        "security": [
+          {
+            "ChannelID": [],
+            "ChannelKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "amount",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "100.00"
+            }
+          },
+          {
+            "name": "fromCurrency",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "USD"
+            }
+          }
+        ],
+        "responses": {
+          "200": {"description": "Charges fetched"},
+          "400": {"description": "Validation error"},
+          "401": {"description": "Unauthorized"},
+          "500": {"description": "Server error"}
+        }
+      }
+    },
     "/convertfcyamount": {
       "post": {
         "summary": "Get converted amount by currency pair",
