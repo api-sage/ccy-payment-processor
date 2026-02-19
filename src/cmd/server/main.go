@@ -52,7 +52,10 @@ func main() {
 	rateService := usecase.NewRateService(rateRepo)
 	rateController := controller.NewRateController(rateService)
 
-	mux := router.New(accountController, userController, participantBankController, rateController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
+	chargesService := usecase.NewChargesService(cfg.ChargePercent, cfg.VATPercent)
+	chargesController := controller.NewChargesController(chargesService)
+
+	mux := router.New(accountController, userController, participantBankController, rateController, chargesController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -18,11 +18,16 @@ type RateRouteRegistrar interface {
 	RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler)
 }
 
+type ChargesRouteRegistrar interface {
+	RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler)
+}
+
 func New(
 	accountController AccountRouteRegistrar,
 	userController UserRouteRegistrar,
 	participantBankController ParticipantBankRouteRegistrar,
 	rateController RateRouteRegistrar,
+	chargesController ChargesRouteRegistrar,
 	authMiddleware func(http.Handler) http.Handler,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -39,6 +44,9 @@ func New(
 	}
 	if rateController != nil {
 		rateController.RegisterRoutes(mux, authMiddleware)
+	}
+	if chargesController != nil {
+		chargesController.RegisterRoutes(mux, authMiddleware)
 	}
 
 	return mux

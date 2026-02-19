@@ -5,24 +5,16 @@ import (
 	"net/http"
 )
 
-const (
-	defaultChannelID  = "GreyApp"
-	defaultChannelKey = "GreyHoundKey001"
-)
-
 func BasicAuth(channelID, channelKey string) func(http.Handler) http.Handler {
-	if channelID == "" {
-		channelID = defaultChannelID
-	}
-	if channelKey == "" {
-		channelKey = defaultChannelKey
-	}
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if channelID == "" || channelKey == "" {
+				http.Error(w, "server auth configuration is missing", http.StatusInternalServerError)
+				return
+			}
+
 			id, key, ok := r.BasicAuth()
 			if !ok || !secureEqual(id, channelID) || !secureEqual(key, channelKey) {
-				w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}

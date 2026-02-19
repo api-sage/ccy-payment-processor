@@ -7,14 +7,13 @@ import (
 )
 
 func TestBasicAuth_AllowsValidCredentials(t *testing.T) {
-	mw := BasicAuth("GreyApp", "GrehoundKey001")
+	mw := BasicAuth("GreyApp", "GreyhoundKey001")
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Channel-ID", "GreyApp")
-	req.Header.Set("X-Channel-Key", "GrehoundKey001")
+	req.SetBasicAuth("GreyApp", "GreyhoundKey001")
 
 	rr := httptest.NewRecorder()
 	mw(next).ServeHTTP(rr, req)
@@ -25,14 +24,13 @@ func TestBasicAuth_AllowsValidCredentials(t *testing.T) {
 }
 
 func TestBasicAuth_RejectsInvalidCredentials(t *testing.T) {
-	mw := BasicAuth("GreyApp", "GrehoundKey001")
+	mw := BasicAuth("GreyApp", "GreyhoundKey001")
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Channel-ID", "GreyApp")
-	req.Header.Set("X-Channel-Key", "WrongKey")
+	req.SetBasicAuth("GreyApp", "WrongKey")
 
 	rr := httptest.NewRecorder()
 	mw(next).ServeHTTP(rr, req)
