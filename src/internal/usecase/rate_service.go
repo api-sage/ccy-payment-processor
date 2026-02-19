@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +47,64 @@ func (s *RateService) GetRate(ctx context.Context, req models.GetRateRequest) (m
 	}
 
 	return models.SuccessResponse("rate fetched successfully", mapRateToResponse(rate)), nil
+}
+
+func (s *RateService) ConvertRate(ctx context.Context, amount string, fromCcy string, toCcy string) (string, string, string, error) {
+	trimmedAmount := strings.TrimSpace(amount)
+	fromCurrency := strings.ToUpper(strings.TrimSpace(fromCcy))
+	toCurrency := strings.ToUpper(strings.TrimSpace(toCcy))
+
+	if trimmedAmount == "" {
+		return "", "", "", fmt.Errorf("amount is required")
+	}
+	if fromCurrency == "" {
+		return "", "", "", fmt.Errorf("fromCcy is required")
+	}
+	if toCurrency == "" {
+		return "", "", "", fmt.Errorf("toCcy is required")
+	}
+	if len(fromCurrency) != 3 || len(toCurrency) != 3 {
+		return "", "", "", fmt.Errorf("fromCcy and toCcy must be 3 characters")
+	}
+	if fromCurrency == toCurrency {
+		return "", "", "", fmt.Errorf("fromCcy and toCcy cannot be the same")
+	}
+
+	parsedAmount, err := strconv.ParseFloat(trimmedAmount, 64)
+	if err != nil {
+		return "", "", "", fmt.Errorf("amount must be numeric: %w", err)
+	}
+	if parsedAmount <= 0 {
+		return "", "", "", fmt.Errorf("amount must be greater than zero")
+	}
+
+	rate, err := s.rateRepo.GetRate(ctx, fromCurrency, toCurrency)
+	if err == nil {
+		usedRate, parseErr := strconv.ParseFloat(rate.SellRate, 64)
+		if parseErr != nil {
+			return "", "", "", fmt.Errorf("invalid stored sell rate: %w", parseErr)
+		}
+
+		converted := parsedAmount * usedRate
+		return fmt.Sprintf("%.8f", converted), fmt.Sprintf("%.8f", usedRate), rate.RateDate.Format("2006-01-02"), nil
+	}
+
+	inverseRate, inverseErr := s.rateRepo.GetRate(ctx, toCurrency, fromCurrency)
+	if inverseErr != nil {
+		return "", "", "", err
+	}
+
+	inverseValue, parseErr := strconv.ParseFloat(inverseRate.SellRate, 64)
+	if parseErr != nil {
+		return "", "", "", fmt.Errorf("invalid stored inverse sell rate: %w", parseErr)
+	}
+	if inverseValue == 0 {
+		return "", "", "", fmt.Errorf("inverse rate cannot be zero")
+	}
+
+	usedRate := 1 / inverseValue
+	converted := parsedAmount * usedRate
+	return fmt.Sprintf("%.8f", converted), fmt.Sprintf("%.8f", usedRate), inverseRate.RateDate.Format("2006-01-02"), nil
 }
 
 func mapRateToResponse(rate domain.Rate) models.RateResponse {
