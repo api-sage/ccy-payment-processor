@@ -179,6 +179,58 @@ func (s *AccountService) GetAccount(ctx context.Context, accountNumber string, b
 	return models.SuccessResponse("account fetched successfully", response), nil
 }
 
+func (s *AccountService) DepositFunds(ctx context.Context, req models.DepositFundsRequest) (models.Response[models.DepositFundsResponse], error) {
+	logger.Info("account service deposit funds request", logger.Fields{
+		"payload": logger.SanitizePayload(req),
+	})
+
+	if err := req.Validate(); err != nil {
+		logger.Error("account service deposit funds validation failed", err, nil)
+		return models.ErrorResponse[models.DepositFundsResponse]("validation failed", err.Error()), err
+	}
+
+	accountNumber := strings.TrimSpace(req.AccountNumber)
+	amount := strings.TrimSpace(req.Amount)
+
+	if err := s.accountRepo.DepositFunds(ctx, accountNumber, amount); err != nil {
+		logger.Error("account service deposit funds failed", err, logger.Fields{
+			"accountNumber": accountNumber,
+			"amount":        amount,
+		})
+		if errors.Is(err, domain.ErrRecordNotFound) {
+			return models.ErrorResponse[models.DepositFundsResponse]("Account not found"), err
+		}
+		return models.ErrorResponse[models.DepositFundsResponse]("failed to deposit funds", "Unable to deposit funds right now"), err
+	}
+
+	account, err := s.accountRepo.GetByAccountNumber(ctx, accountNumber)
+	if err != nil {
+		logger.Error("account service get account after deposit failed", err, logger.Fields{
+			"accountNumber": accountNumber,
+		})
+		if errors.Is(err, domain.ErrRecordNotFound) {
+			return models.ErrorResponse[models.DepositFundsResponse]("Account not found"), err
+		}
+		return models.ErrorResponse[models.DepositFundsResponse]("failed to fetch account", "Unable to fetch account right now"), err
+	}
+
+	response := models.DepositFundsResponse{
+		AccountNumber:    account.AccountNumber,
+		Currency:         account.Currency,
+		DepositedAmount:  amount,
+		AvailableBalance: account.AvailableBalance,
+		LedgerBalance:    account.LedgerBalance,
+	}
+
+	logger.Info("account service deposit funds success", logger.Fields{
+		"accountNumber":    response.AccountNumber,
+		"depositedAmount":  response.DepositedAmount,
+		"availableBalance": response.AvailableBalance,
+	})
+
+	return models.SuccessResponse("funds deposited successfully", response), nil
+}
+
 func parseBalance(raw string) (string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return "0.00", nil

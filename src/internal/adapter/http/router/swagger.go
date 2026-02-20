@@ -119,6 +119,38 @@ const openAPI = `{
         }
       }
     },
+    "/deposit-funds": {
+      "post": {
+        "summary": "Deposit funds into an internal account",
+        "security": [
+          {
+            "BasicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["accountNumber", "amount"],
+                "properties": {
+                  "accountNumber": {"type": "string", "example": "0123456789"},
+                  "amount": {"type": "string", "example": "100.00"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Deposit successful"},
+          "400": {"description": "Validation error"},
+          "401": {"description": "Unauthorized"},
+          "404": {"description": "Account not found"},
+          "500": {"description": "Server error"}
+        }
+      }
+    },
     "/get-participant-banks": {
       "get": {
         "summary": "Get participant banks",
