@@ -12,7 +12,7 @@ const (
 
 type Transfer struct {
 	ID                   string
-	PaymentReference     *string
+	ExternalRefernece    *string
 	TransactionReference *string
 	DebitAccountNumber   string
 	CreditAccountNumber  *string

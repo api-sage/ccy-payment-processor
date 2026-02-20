@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_accounts_customer_id ON accounts(customer_id);
 
 CREATE TABLE IF NOT EXISTS transfers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payment_reference VARCHAR(64) UNIQUE,
+    external_refernece VARCHAR(64) UNIQUE,
     transaction_reference VARCHAR(64) UNIQUE,
     debit_account_number VARCHAR(32) NOT NULL REFERENCES accounts(account_number),
     credit_account_number VARCHAR(32),
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS transfers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_transfers_status ON transfers(status);
-CREATE INDEX IF NOT EXISTS idx_transfers_payment_reference ON transfers(payment_reference);
+CREATE INDEX IF NOT EXISTS idx_transfers_external_refernece ON transfers(external_refernece);
 
 CREATE TABLE IF NOT EXISTS rates (
     id BIGSERIAL PRIMARY KEY,
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS rates (
 CREATE TABLE IF NOT EXISTS transient_account_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     transfer_id UUID NOT NULL REFERENCES transfers(id) ON DELETE CASCADE,
-    payment_reference VARCHAR(64) NOT NULL,
+    external_refernece VARCHAR(64) NOT NULL,
     entry_type VARCHAR(16) NOT NULL CHECK (entry_type IN ('DEBIT', 'CREDIT')),
     currency CHAR(3) NOT NULL CHECK (currency IN ('USD', 'EUR', 'GBP')),
     amount NUMERIC(20, 2) NOT NULL,
@@ -76,4 +76,4 @@ CREATE TABLE IF NOT EXISTS transient_account_transactions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tat_transfer_id ON transient_account_transactions(transfer_id);
-CREATE INDEX IF NOT EXISTS idx_tat_payment_reference ON transient_account_transactions(payment_reference);
+CREATE INDEX IF NOT EXISTS idx_tat_external_refernece ON transient_account_transactions(external_refernece);
