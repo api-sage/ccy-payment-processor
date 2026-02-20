@@ -10,6 +10,7 @@ import (
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/models"
 	"github.com/api-sage/ccy-payment-processor/src/internal/domain"
+	"github.com/api-sage/ccy-payment-processor/src/internal/logger"
 )
 
 type AccountService struct {
@@ -31,12 +32,18 @@ func NewAccountService(
 }
 
 func (s *AccountService) CreateAccount(ctx context.Context, req models.CreateAccountRequest) (models.Response[models.CreateAccountResponse], error) {
+	logger.Info("account service create account request", logger.Fields{
+		"payload": logger.SanitizePayload(req),
+	})
+
 	if err := req.Validate(); err != nil {
+		logger.Error("account service create account validation failed", err, nil)
 		return models.ErrorResponse[models.CreateAccountResponse]("validation failed", err.Error()), err
 	}
 
 	balance, err := parseBalance(req.InitialDeposit)
 	if err != nil {
+		logger.Error("account service create account parse balance failed", err, nil)
 		return models.ErrorResponse[models.CreateAccountResponse]("validation failed", err.Error()), err
 	}
 
@@ -51,6 +58,9 @@ func (s *AccountService) CreateAccount(ctx context.Context, req models.CreateAcc
 
 	created, err := s.accountRepo.Create(ctx, account)
 	if err != nil {
+		logger.Error("account service create account repository failed", err, logger.Fields{
+			"customerId": account.CustomerID,
+		})
 		return models.ErrorResponse[models.CreateAccountResponse]("failed to create account", "Unable to create account right now"), err
 	}
 
@@ -66,10 +76,21 @@ func (s *AccountService) CreateAccount(ctx context.Context, req models.CreateAcc
 		UpdatedAt:        created.UpdatedAt.Format(time.RFC3339),
 	}
 
+	logger.Info("account service create account success", logger.Fields{
+		"accountId":     response.ID,
+		"accountNumber": response.AccountNumber,
+		"customerId":    response.CustomerID,
+	})
+
 	return models.SuccessResponse("account created successfully", response), nil
 }
 
 func (s *AccountService) GetAccount(ctx context.Context, accountNumber string, bankCode string) (models.Response[models.GetAccountResponse], error) {
+	logger.Info("account service get account request", logger.Fields{
+		"accountNumber": accountNumber,
+		"bankCode":      bankCode,
+	})
+
 	accountNumber = strings.TrimSpace(accountNumber)
 	bankCode = strings.TrimSpace(bankCode)
 
@@ -89,6 +110,9 @@ func (s *AccountService) GetAccount(ctx context.Context, accountNumber string, b
 	if bankCode != s.greyBankCode {
 		banks, err := s.participantBankRepo.GetAll(ctx)
 		if err != nil {
+			logger.Error("account service get external account banks lookup failed", err, logger.Fields{
+				"bankCode": bankCode,
+			})
 			return models.ErrorResponse[models.GetAccountResponse]("failed to get account", "Unable to fetch account right now"), err
 		}
 
@@ -110,11 +134,21 @@ func (s *AccountService) GetAccount(ctx context.Context, accountNumber string, b
 			BankName:      mappedBankName,
 		}
 
+		logger.Info("account service get external account success", logger.Fields{
+			"accountNumber": accountNumber,
+			"bankCode":      bankCode,
+			"bankName":      mappedBankName,
+		})
+
 		return models.SuccessResponse("external account fetched successfully", response), nil
 	}
 
 	account, err := s.accountRepo.GetByAccountNumber(ctx, accountNumber)
 	if err != nil {
+		logger.Error("account service get internal account failed", err, logger.Fields{
+			"accountNumber": accountNumber,
+			"bankCode":      bankCode,
+		})
 		if errors.Is(err, domain.ErrRecordNotFound) {
 			return models.ErrorResponse[models.GetAccountResponse]("Account not found"), err
 		}
@@ -135,6 +169,12 @@ func (s *AccountService) GetAccount(ctx context.Context, accountNumber string, b
 		CreatedAt:        account.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        account.UpdatedAt.Format(time.RFC3339),
 	}
+
+	logger.Info("account service get internal account success", logger.Fields{
+		"accountId":     response.ID,
+		"accountNumber": response.AccountNumber,
+		"customerId":    response.CustomerID,
+	})
 
 	return models.SuccessResponse("account fetched successfully", response), nil
 }

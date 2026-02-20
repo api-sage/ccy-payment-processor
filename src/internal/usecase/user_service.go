@@ -9,6 +9,7 @@ import (
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/models"
 	"github.com/api-sage/ccy-payment-processor/src/internal/domain"
+	"github.com/api-sage/ccy-payment-processor/src/internal/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -21,12 +22,18 @@ func NewUserService(userRepo domain.UserRepository) *UserService {
 }
 
 func (s *UserService) CreateUser(ctx context.Context, req models.CreateUserRequest) (models.Response[models.CreateUserResponse], error) {
+	logger.Info("user service create user request", logger.Fields{
+		"payload": logger.SanitizePayload(req),
+	})
+
 	if err := req.Validate(); err != nil {
+		logger.Error("user service create user validation failed", err, nil)
 		return models.ErrorResponse[models.CreateUserResponse]("validation failed", err.Error()), err
 	}
 
 	dob, err := time.Parse("2006-01-02", strings.TrimSpace(req.DOB))
 	if err != nil {
+		logger.Error("user service create user invalid dob", err, nil)
 		return models.ErrorResponse[models.CreateUserResponse]("validation failed", "dob must be in YYYY-MM-DD format"), err
 	}
 
@@ -37,6 +44,7 @@ func (s *UserService) CreateUser(ctx context.Context, req models.CreateUserReque
 
 	hashedPin, err := hashTransactionPin(strings.TrimSpace(req.TransactionPin))
 	if err != nil {
+		logger.Error("user service create user hash pin failed", err, nil)
 		return models.ErrorResponse[models.CreateUserResponse]("failed to create user", "failed to hash transaction pin"), err
 	}
 
@@ -55,6 +63,9 @@ func (s *UserService) CreateUser(ctx context.Context, req models.CreateUserReque
 
 	created, err := s.userRepo.Create(ctx, user)
 	if err != nil {
+		logger.Error("user service create user repository failed", err, logger.Fields{
+			"customerId": user.CustomerID,
+		})
 		return models.ErrorResponse[models.CreateUserResponse]("failed to create user", "Unable to create user right now"), err
 	}
 
@@ -65,16 +76,31 @@ func (s *UserService) CreateUser(ctx context.Context, req models.CreateUserReque
 		LastName:   created.LastName,
 	}
 
+	logger.Info("user service create user success", logger.Fields{
+		"userId":      response.ID,
+		"customerId":  response.CustomerID,
+		"firstName":   response.FirstName,
+		"lastName":    response.LastName,
+		"transaction": "create",
+	})
+
 	return models.SuccessResponse("user created successfully", response), nil
 }
 
 func (s *UserService) GetUser(ctx context.Context, id string) (models.Response[models.GetUserResponse], error) {
+	logger.Info("user service get user request", logger.Fields{
+		"userId": id,
+	})
+
 	if strings.TrimSpace(id) == "" {
 		return models.ErrorResponse[models.GetUserResponse]("validation failed", "id is required"), fmt.Errorf("id is required")
 	}
 
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
+		logger.Error("user service get user failed", err, logger.Fields{
+			"userId": id,
+		})
 		if errors.Is(err, domain.ErrRecordNotFound) {
 			return models.ErrorResponse[models.GetUserResponse]("User not found"), err
 		}
@@ -97,10 +123,22 @@ func (s *UserService) GetUser(ctx context.Context, id string) (models.Response[m
 		UpdatedAt:          user.UpdatedAt.Format(time.RFC3339),
 	}
 
+	logger.Info("user service get user success", logger.Fields{
+		"userId":     response.ID,
+		"customerId": response.CustomerID,
+	})
+
 	return models.SuccessResponse("user fetched successfully", response), nil
 }
 
 func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin string) (models.Response[models.VerifyUserPinResponse], error) {
+	logger.Info("user service verify pin request", logger.Fields{
+		"payload": logger.SanitizePayload(map[string]string{
+			"customerId": customerID,
+			"pin":        pin,
+		}),
+	})
+
 	customerID = strings.TrimSpace(customerID)
 	pin = strings.TrimSpace(pin)
 
@@ -113,6 +151,9 @@ func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin 
 
 	storedPinHash, err := s.userRepo.GetTransactionPinHashByCustomerID(ctx, customerID)
 	if err != nil {
+		logger.Error("user service verify pin lookup failed", err, logger.Fields{
+			"customerId": customerID,
+		})
 		if errors.Is(err, domain.ErrRecordNotFound) {
 			return models.ErrorResponse[models.VerifyUserPinResponse]("User not found"), err
 		}
@@ -121,9 +162,15 @@ func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin 
 
 	if err := bcrypt.CompareHashAndPassword([]byte(storedPinHash), []byte(pin)); err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
+			logger.Info("user service verify pin mismatch", logger.Fields{
+				"customerId": customerID,
+			})
 			return models.ErrorResponse[models.VerifyUserPinResponse]("invalid pin", "provided pin does not match"), fmt.Errorf("invalid pin")
 		}
 		wrappedErr := fmt.Errorf("verify user pin: %w", err)
+		logger.Error("user service verify pin compare failed", wrappedErr, logger.Fields{
+			"customerId": customerID,
+		})
 		return models.ErrorResponse[models.VerifyUserPinResponse]("failed to verify pin", "Unable to verify pin right now"), wrappedErr
 	}
 
@@ -131,6 +178,11 @@ func (s *UserService) VerifyUserPin(ctx context.Context, customerID string, pin 
 		CustomerID: customerID,
 		IsValidPin: true,
 	}
+
+	logger.Info("user service verify pin success", logger.Fields{
+		"customerId": customerID,
+		"isValidPin": true,
+	})
 
 	return models.SuccessResponse("pin verified successfully", response), nil
 }
