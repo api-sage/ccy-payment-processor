@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/domain"
@@ -183,7 +184,126 @@ RETURNING created_at, updated_at, processed_at`
 }
 
 func (r *TransferRepository) Get(ctx context.Context, id string, transactionReference string, externalRefernece string) (domain.Transfer, error) {
-	return domain.Transfer{}, fmt.Errorf("not implemented")
+	trimmedID := strings.TrimSpace(id)
+	trimmedTxRef := strings.TrimSpace(transactionReference)
+	trimmedExternalRef := strings.TrimSpace(externalRefernece)
+
+	if trimmedID == "" && trimmedTxRef == "" && trimmedExternalRef == "" {
+		return domain.Transfer{}, fmt.Errorf("id or transactionReference or externalRefernece is required")
+	}
+
+	logger.Info("transfer repository get", logger.Fields{
+		"id":                   trimmedID,
+		"transactionReference": trimmedTxRef,
+		"externalRefernece":    trimmedExternalRef,
+	})
+
+	const query = `
+SELECT id,
+       external_refernece,
+       transaction_reference,
+       debit_account_number,
+       credit_account_number,
+       beneficiary_bank_code,
+       debit_currency,
+       credit_currency,
+       debit_amount,
+       credit_amount,
+       fcy_rate,
+       charge_amount,
+       vat_amount,
+       narration,
+       status,
+       audit_payload,
+       created_at,
+       updated_at,
+       processed_at
+FROM transfers
+WHERE ($1 <> '' AND id::text = $1)
+   OR ($2 <> '' AND transaction_reference = $2)
+   OR ($3 <> '' AND external_refernece = $3)
+ORDER BY updated_at DESC
+LIMIT 1`
+
+	var (
+		transfer               domain.Transfer
+		externalReference      sql.NullString
+		transactionReferenceDB sql.NullString
+		creditAccountNumber    sql.NullString
+		beneficiaryBankCode    sql.NullString
+		narration              sql.NullString
+		processedAt            sql.NullTime
+	)
+
+	if err := r.db.QueryRowContext(ctx, query, trimmedID, trimmedTxRef, trimmedExternalRef).Scan(
+		&transfer.ID,
+		&externalReference,
+		&transactionReferenceDB,
+		&transfer.DebitAccountNumber,
+		&creditAccountNumber,
+		&beneficiaryBankCode,
+		&transfer.DebitCurrency,
+		&transfer.CreditCurrency,
+		&transfer.DebitAmount,
+		&transfer.CreditAmount,
+		&transfer.FCYRate,
+		&transfer.ChargeAmount,
+		&transfer.VATAmount,
+		&narration,
+		&transfer.Status,
+		&transfer.AuditPayload,
+		&transfer.CreatedAt,
+		&transfer.UpdatedAt,
+		&processedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			logger.Info("transfer repository record not found", logger.Fields{
+				"id":                   trimmedID,
+				"transactionReference": trimmedTxRef,
+				"externalRefernece":    trimmedExternalRef,
+			})
+			return domain.Transfer{}, domain.ErrRecordNotFound
+		}
+		logger.Error("transfer repository get failed", err, logger.Fields{
+			"id":                   trimmedID,
+			"transactionReference": trimmedTxRef,
+			"externalRefernece":    trimmedExternalRef,
+		})
+		return domain.Transfer{}, fmt.Errorf("get transfer: %w", err)
+	}
+
+	if externalReference.Valid {
+		value := externalReference.String
+		transfer.ExternalRefernece = &value
+	}
+	if transactionReferenceDB.Valid {
+		value := transactionReferenceDB.String
+		transfer.TransactionReference = &value
+	}
+	if creditAccountNumber.Valid {
+		value := creditAccountNumber.String
+		transfer.CreditAccountNumber = &value
+	}
+	if beneficiaryBankCode.Valid {
+		value := beneficiaryBankCode.String
+		transfer.BeneficiaryBankCode = &value
+	}
+	if narration.Valid {
+		value := narration.String
+		transfer.Narration = &value
+	}
+	if processedAt.Valid {
+		value := processedAt.Time
+		transfer.ProcessedAt = &value
+	}
+
+	logger.Info("transfer repository get success", logger.Fields{
+		"transferId":           transfer.ID,
+		"transactionReference": transfer.TransactionReference,
+		"status":               transfer.Status,
+	})
+
+	return transfer, nil
 }
 
 func (r *TransferRepository) ProcessInternalTransfer(ctx context.Context, debitAccountNumber string, debitAmount string, suspenseAccountNumber string, creditAccountNumber string, creditAmount string) error {
