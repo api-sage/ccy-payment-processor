@@ -9,6 +9,7 @@ import (
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/models"
 	"github.com/api-sage/ccy-payment-processor/src/internal/domain"
+	"github.com/api-sage/ccy-payment-processor/src/internal/logger"
 	"github.com/shopspring/decimal"
 )
 
@@ -21,8 +22,11 @@ func NewRateService(rateRepo domain.RateRepository) *RateService {
 }
 
 func (s *RateService) GetRates(ctx context.Context) (models.Response[[]models.RateResponse], error) {
+	logger.Info("rate service get rates request", nil)
+
 	rates, err := s.rateRepo.GetRates(ctx)
 	if err != nil {
+		logger.Error("rate service get rates failed", err, nil)
 		return models.ErrorResponse[[]models.RateResponse]("failed to get rates", "Unable to fetch rates right now"), err
 	}
 
@@ -31,11 +35,20 @@ func (s *RateService) GetRates(ctx context.Context) (models.Response[[]models.Ra
 		resp = append(resp, mapRateToResponse(rate))
 	}
 
+	logger.Info("rate service get rates success", logger.Fields{
+		"count": len(resp),
+	})
+
 	return models.SuccessResponse("rates fetched successfully", resp), nil
 }
 
 func (s *RateService) GetRate(ctx context.Context, req models.GetRateRequest) (models.Response[models.RateResponse], error) {
+	logger.Info("rate service get rate request", logger.Fields{
+		"payload": logger.SanitizePayload(req),
+	})
+
 	if err := req.Validate(); err != nil {
+		logger.Error("rate service get rate validation failed", err, nil)
 		return models.ErrorResponse[models.RateResponse]("validation failed", err.Error()), err
 	}
 
@@ -44,11 +57,21 @@ func (s *RateService) GetRate(ctx context.Context, req models.GetRateRequest) (m
 
 	rate, err := s.rateRepo.GetRate(ctx, fromCurrency, toCurrency)
 	if err != nil {
+		logger.Error("rate service get rate failed", err, logger.Fields{
+			"fromCurrency": fromCurrency,
+			"toCurrency":   toCurrency,
+		})
 		if errors.Is(err, domain.ErrRecordNotFound) {
 			return models.ErrorResponse[models.RateResponse]("Rate not found"), err
 		}
 		return models.ErrorResponse[models.RateResponse]("failed to get rate", "Unable to fetch rate right now"), err
 	}
+
+	logger.Info("rate service get rate success", logger.Fields{
+		"rateId":       rate.ID,
+		"fromCurrency": rate.FromCurrency,
+		"toCurrency":   rate.ToCurrency,
+	})
 
 	return models.SuccessResponse("rate fetched successfully", mapRateToResponse(rate)), nil
 }
@@ -112,12 +135,21 @@ func (s *RateService) ConvertRate(ctx context.Context, amount string, fromCcy st
 }
 
 func (s *RateService) GetCcyRates(ctx context.Context, req models.GetCcyRatesRequest) (models.Response[models.GetCcyRatesResponse], error) {
+	logger.Info("rate service convert fcy amount request", logger.Fields{
+		"payload": logger.SanitizePayload(req),
+	})
+
 	if err := req.Validate(); err != nil {
+		logger.Error("rate service convert fcy amount validation failed", err, nil)
 		return models.ErrorResponse[models.GetCcyRatesResponse]("validation failed", err.Error()), err
 	}
 
 	convertedAmount, rateUsed, rateDate, err := s.ConvertRate(ctx, req.Amount, req.FromCcy, req.ToCcy)
 	if err != nil {
+		logger.Error("rate service convert fcy amount failed", err, logger.Fields{
+			"fromCcy": req.FromCcy,
+			"toCcy":   req.ToCcy,
+		})
 		if errors.Is(err, domain.ErrRecordNotFound) {
 			return models.ErrorResponse[models.GetCcyRatesResponse]("Rate not found for currency pair"), err
 		}
@@ -132,6 +164,13 @@ func (s *RateService) GetCcyRates(ctx context.Context, req models.GetCcyRatesReq
 		RateUsed:        rateUsed,
 		RateDate:        rateDate,
 	}
+
+	logger.Info("rate service convert fcy amount success", logger.Fields{
+		"fromCcy":         response.FromCcy,
+		"toCcy":           response.ToCcy,
+		"convertedAmount": response.ConvertedAmount,
+		"rateDate":        response.RateDate,
+	})
 
 	return models.SuccessResponse("currency rate fetched successfully", response), nil
 }

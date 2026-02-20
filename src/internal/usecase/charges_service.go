@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/models"
+	"github.com/api-sage/ccy-payment-processor/src/internal/logger"
 	"github.com/shopspring/decimal"
 )
 
@@ -22,13 +23,19 @@ func NewChargesService(chargePercent float64, vatPercent float64) *ChargesServic
 }
 
 func (s *ChargesService) GetChargesSummary(ctx context.Context, req models.GetChargesRequest) (models.Response[models.GetChargesResponse], error) {
+	logger.Info("charges service get charges request", logger.Fields{
+		"payload": logger.SanitizePayload(req),
+	})
+
 	_ = ctx
 	if err := req.Validate(); err != nil {
+		logger.Error("charges service get charges validation failed", err, nil)
 		return models.ErrorResponse[models.GetChargesResponse]("validation failed", err.Error()), err
 	}
 
 	amount, currency, charge, vat, sumTotal, err := s.GetCharges(req.Amount, req.FromCurrency)
 	if err != nil {
+		logger.Error("charges service get charges calculation failed", err, nil)
 		return models.ErrorResponse[models.GetChargesResponse]("failed to get charges", "Unable to fetch charges right now"), err
 	}
 
@@ -39,6 +46,14 @@ func (s *ChargesService) GetChargesSummary(ctx context.Context, req models.GetCh
 		VAT:      vat,
 		SumTotal: sumTotal,
 	}
+
+	logger.Info("charges service get charges success", logger.Fields{
+		"amount":   response.Amount,
+		"currency": response.Currency,
+		"charge":   response.Charge,
+		"vat":      response.VAT,
+		"sumTotal": response.SumTotal,
+	})
 
 	return models.SuccessResponse("charges fetched successfully", response), nil
 }
