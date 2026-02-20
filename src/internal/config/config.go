@@ -14,15 +14,21 @@ const defaultChannelKey = "GreyHoundKey001"
 const defaultGreyBankCode = "100100"
 const defaultChargePercent = 2.0
 const defaultVATPercent = 7.5
+const defaultInternalTransientAccountNumber = "0123456890"
+const defaultInternalChargesAccountNumber = "0123445521"
+const defaultInternalVATAccountNumber = "0125548976"
 
 type Config struct {
-	DatabaseDSN   string
-	MigrationsDir string
-	ChannelID     string
-	ChannelKey    string
-	GreyBankCode  string
-	ChargePercent float64
-	VATPercent    float64
+	DatabaseDSN                    string
+	MigrationsDir                  string
+	ChannelID                      string
+	ChannelKey                     string
+	GreyBankCode                   string
+	ChargePercent                  float64
+	VATPercent                     float64
+	InternalTransientAccountNumber string
+	InternalChargesAccountNumber   string
+	InternalVATAccountNumber       string
 }
 
 func Load() (Config, error) {
@@ -56,14 +62,32 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	internalTransientAccountNumber := strings.TrimSpace(os.Getenv("INTERNAL_TRANSIENT_ACCOUNT_NUMBER"))
+	if internalTransientAccountNumber == "" {
+		internalTransientAccountNumber = defaultInternalTransientAccountNumber
+	}
+
+	internalChargesAccountNumber := strings.TrimSpace(os.Getenv("INTERNAL_CHARGES_ACCOUNT_NUMBER"))
+	if internalChargesAccountNumber == "" {
+		internalChargesAccountNumber = defaultInternalChargesAccountNumber
+	}
+
+	internalVATAccountNumber := strings.TrimSpace(os.Getenv("INTERNAL_VAT_ACCOUNT_NUMBER"))
+	if internalVATAccountNumber == "" {
+		internalVATAccountNumber = defaultInternalVATAccountNumber
+	}
+
 	return Config{
-		DatabaseDSN:   normalizeConnectionString(conn),
-		MigrationsDir: filepath.Join("src", "migrations"),
-		ChannelID:     channelID,
-		ChannelKey:    channelKey,
-		GreyBankCode:  greyBankCode,
-		ChargePercent: chargePercent,
-		VATPercent:    vatPercent,
+		DatabaseDSN:                    normalizeConnectionString(conn),
+		MigrationsDir:                  filepath.Join("src", "migrations"),
+		ChannelID:                      channelID,
+		ChannelKey:                     channelKey,
+		GreyBankCode:                   greyBankCode,
+		ChargePercent:                  chargePercent,
+		VATPercent:                     vatPercent,
+		InternalTransientAccountNumber: internalTransientAccountNumber,
+		InternalChargesAccountNumber:   internalChargesAccountNumber,
+		InternalVATAccountNumber:       internalVATAccountNumber,
 	}, nil
 }
 
