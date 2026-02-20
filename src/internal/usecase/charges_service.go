@@ -6,19 +6,22 @@ import (
 	"strings"
 
 	"github.com/api-sage/ccy-payment-processor/src/internal/adapter/http/models"
+	"github.com/api-sage/ccy-payment-processor/src/internal/domain"
 	"github.com/api-sage/ccy-payment-processor/src/internal/logger"
 	"github.com/shopspring/decimal"
 )
 
 type ChargesService struct {
+	rateRepo      domain.RateRepository
 	chargePercent float64
 	vatPercent    float64
 	chargeMin     float64
 	chargeMax     float64
 }
 
-func NewChargesService(chargePercent float64, vatPercent float64, chargeMin float64, chargeMax float64) *ChargesService {
+func NewChargesService(rateRepo domain.RateRepository, chargePercent float64, vatPercent float64, chargeMin float64, chargeMax float64) *ChargesService {
 	return &ChargesService{
+		rateRepo:      rateRepo,
 		chargePercent: chargePercent,
 		vatPercent:    vatPercent,
 		chargeMin:     chargeMin,
