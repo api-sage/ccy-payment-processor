@@ -3,6 +3,6 @@ package domain
 import "context"
 
 type TransientAccountRepository interface {
-	DebitTransientAccount(ctx context.Context, transientAccountNumber string, amount string) error
-	CreditTransientAccount(ctx context.Context, transientAccountNumber string, amount string) error
+	DebitSuspenseAccount(ctx context.Context, suspenseAccountNumber string, currency string, amount string) error
+	CreditSuspenseAccount(ctx context.Context, suspenseAccountNumber string, currency string, amount string) error
 }
