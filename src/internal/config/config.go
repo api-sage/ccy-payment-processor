@@ -12,8 +12,10 @@ const defaultConnectionString = "Host=localhost;Port=5432;Database=payment_syste
 const defaultChannelID = "GreyApp"
 const defaultChannelKey = "GreyHoundKey001"
 const defaultGreyBankCode = "100100"
-const defaultChargePercent = 2.0
+const defaultChargePercent = 1.0
 const defaultVATPercent = 7.5
+const defaultChargeMinAmount = 2.0
+const defaultChargeMaxAmount = 20.0
 
 type Config struct {
 	DatabaseDSN   string
@@ -23,6 +25,8 @@ type Config struct {
 	GreyBankCode  string
 	ChargePercent float64
 	VATPercent    float64
+	ChargeMin     float64
+	ChargeMax     float64
 }
 
 func Load() (Config, error) {
@@ -56,6 +60,19 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	chargeMin, err := parseAmountEnv("CHARGE_MIN_AMOUNT", defaultChargeMinAmount)
+	if err != nil {
+		return Config{}, err
+	}
+
+	chargeMax, err := parseAmountEnv("CHARGE_MAX_AMOUNT", defaultChargeMaxAmount)
+	if err != nil {
+		return Config{}, err
+	}
+	if chargeMax < chargeMin {
+		return Config{}, fmt.Errorf("CHARGE_MAX_AMOUNT cannot be less than CHARGE_MIN_AMOUNT")
+	}
+
 	return Config{
 		DatabaseDSN:   normalizeConnectionString(conn),
 		MigrationsDir: filepath.Join("src", "migrations"),
@@ -64,10 +81,29 @@ func Load() (Config, error) {
 		GreyBankCode:  greyBankCode,
 		ChargePercent: chargePercent,
 		VATPercent:    vatPercent,
+		ChargeMin:     chargeMin,
+		ChargeMax:     chargeMax,
 	}, nil
 }
 
 func parsePercentageEnv(key string, fallback float64) (float64, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback, nil
+	}
+
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", key, err)
+	}
+	if value < 0 {
+		return 0, fmt.Errorf("%s cannot be negative", key)
+	}
+
+	return value, nil
+}
+
+func parseAmountEnv(key string, fallback float64) (float64, error) {
 	raw := strings.TrimSpace(os.Getenv(key))
 	if raw == "" {
 		return fallback, nil

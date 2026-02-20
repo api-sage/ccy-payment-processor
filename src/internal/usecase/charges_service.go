@@ -13,12 +13,16 @@ import (
 type ChargesService struct {
 	chargePercent float64
 	vatPercent    float64
+	chargeMin     float64
+	chargeMax     float64
 }
 
-func NewChargesService(chargePercent float64, vatPercent float64) *ChargesService {
+func NewChargesService(chargePercent float64, vatPercent float64, chargeMin float64, chargeMax float64) *ChargesService {
 	return &ChargesService{
 		chargePercent: chargePercent,
 		vatPercent:    vatPercent,
+		chargeMin:     chargeMin,
+		chargeMax:     chargeMax,
 	}
 }
 
@@ -82,8 +86,16 @@ func (s *ChargesService) GetCharges(amount string, fromCurrency string) (string,
 
 	chargePercent := decimal.NewFromFloat(s.chargePercent).Div(decimal.NewFromInt(100))
 	vatPercent := decimal.NewFromFloat(s.vatPercent).Div(decimal.NewFromInt(100))
+	chargeMin := decimal.NewFromFloat(s.chargeMin)
+	chargeMax := decimal.NewFromFloat(s.chargeMax)
 
 	chargeValue := amountValue.Mul(chargePercent)
+	if chargeValue.LessThan(chargeMin) {
+		chargeValue = chargeMin
+	}
+	if chargeValue.GreaterThan(chargeMax) {
+		chargeValue = chargeMax
+	}
 	vatValue := amountValue.Mul(vatPercent)
 	totalValue := amountValue.Add(chargeValue).Add(vatValue)
 
