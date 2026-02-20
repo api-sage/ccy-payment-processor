@@ -24,6 +24,7 @@ type Transfer struct {
 	FCYRate              string
 	ChargeAmount         string
 	VATAmount            string
+	Narration            *string
 	Status               TransferStatus
 	AuditPayload         string
 	CreatedAt            time.Time
