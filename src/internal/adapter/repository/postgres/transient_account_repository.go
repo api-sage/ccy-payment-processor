@@ -136,3 +136,108 @@ WHERE account_number = $1
 	})
 	return nil
 }
+
+func (r *TransientAccountRepository) SettleFromSuspenseToFees(
+	ctx context.Context,
+	suspenseAccountNumber string,
+	suspenseCurrency string,
+	chargeAmount string,
+	vatAmount string,
+	chargesAccountNumber string,
+	vatAccountNumber string,
+	chargeUSD string,
+	vatUSD string,
+) error {
+	logger.Info("transient account repository settle from suspense to fees", logger.Fields{
+		"suspenseAccountNumber": suspenseAccountNumber,
+		"suspenseCurrency":      suspenseCurrency,
+		"chargeAmount":          chargeAmount,
+		"vatAmount":             vatAmount,
+		"chargesAccountNumber":  chargesAccountNumber,
+		"vatAccountNumber":      vatAccountNumber,
+		"chargeUSD":             chargeUSD,
+		"vatUSD":                vatUSD,
+	})
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin settlement transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Debit suspense by combined charge and VAT before crediting fee accounts.
+	debitSuspenseSumQuery := `
+UPDATE transient_accounts
+SET available_balance = available_balance - ($2::numeric + $3::numeric),
+    updated_at = NOW()
+WHERE account_number = $1
+  AND UPPER(currency) = UPPER($4)
+  AND available_balance >= ($2::numeric + $3::numeric)`
+	result, execErr := tx.ExecContext(ctx, debitSuspenseSumQuery, suspenseAccountNumber, chargeAmount, vatAmount, suspenseCurrency)
+	if execErr != nil {
+		err = fmt.Errorf("debit suspense for settlement: %w", execErr)
+		return err
+	}
+	rows, rowsErr := result.RowsAffected()
+	if rowsErr != nil {
+		err = fmt.Errorf("debit suspense rows affected: %w", rowsErr)
+		return err
+	}
+	if rows == 0 {
+		err = domain.ErrInsufficientBalance
+		return err
+	}
+
+	creditFeeQuery := `
+UPDATE transient_accounts
+SET available_balance = available_balance + $2::numeric,
+    updated_at = NOW()
+WHERE account_number = $1
+  AND UPPER(currency) = 'USD'`
+
+	result, execErr = tx.ExecContext(ctx, creditFeeQuery, chargesAccountNumber, chargeUSD)
+	if execErr != nil {
+		err = fmt.Errorf("credit charges account for settlement: %w", execErr)
+		return err
+	}
+	rows, rowsErr = result.RowsAffected()
+	if rowsErr != nil {
+		err = fmt.Errorf("credit charges rows affected: %w", rowsErr)
+		return err
+	}
+	if rows == 0 {
+		err = domain.ErrRecordNotFound
+		return err
+	}
+
+	result, execErr = tx.ExecContext(ctx, creditFeeQuery, vatAccountNumber, vatUSD)
+	if execErr != nil {
+		err = fmt.Errorf("credit vat account for settlement: %w", execErr)
+		return err
+	}
+	rows, rowsErr = result.RowsAffected()
+	if rowsErr != nil {
+		err = fmt.Errorf("credit vat rows affected: %w", rowsErr)
+		return err
+	}
+	if rows == 0 {
+		err = domain.ErrRecordNotFound
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit settlement transaction: %w", err)
+	}
+
+	logger.Info("transient account repository settle from suspense to fees success", logger.Fields{
+		"suspenseAccountNumber": suspenseAccountNumber,
+		"chargesAccountNumber":  chargesAccountNumber,
+		"vatAccountNumber":      vatAccountNumber,
+	})
+
+	return nil
+}
