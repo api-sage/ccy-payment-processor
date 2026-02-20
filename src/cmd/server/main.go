@@ -55,7 +55,25 @@ func main() {
 	chargesService := usecase.NewChargesService(cfg.ChargePercent, cfg.VATPercent)
 	chargesController := controller.NewChargesController(chargesService)
 
-	mux := router.New(accountController, userController, participantBankController, rateController, chargesController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
+	transferRepo := postgres.NewTransferRepository(db)
+	transientAccountRepo := postgres.NewTransientAccountRepository(db)
+	transientAccountTransactionRepo := postgres.NewTransientAccountTransactionRepository(db)
+	transferService := usecase.NewTransferService(
+		transferRepo,
+		accountRepo,
+		transientAccountRepo,
+		transientAccountTransactionRepo,
+		rateRepo,
+		cfg.ChargePercent,
+		cfg.VATPercent,
+		cfg.GreyBankCode,
+		cfg.InternalTransientAccountNumber,
+		cfg.InternalChargesAccountNumber,
+		cfg.InternalVATAccountNumber,
+	)
+	transferController := controller.NewTransferController(transferService)
+
+	mux := router.New(accountController, userController, participantBankController, rateController, chargesController, transferController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
 
 	port := os.Getenv("PORT")
 	if port == "" {
