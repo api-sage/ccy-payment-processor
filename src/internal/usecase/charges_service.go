@@ -98,11 +98,17 @@ func (s *ChargesService) GetCharges(ctx context.Context, amount string, fromCurr
 	calculationAmount := amountValue
 	conversionRate := decimal.NewFromInt(1)
 	if ccy != "USD" {
+		currencyToUSDRate, currencyToUSDErr := s.getCurrencyToUSDRate(ctx, ccy)
+		if currencyToUSDErr != nil {
+			return "", "", "", "", "", currencyToUSDErr
+		}
+
 		conversionRate, err = s.getUSDToCurrencyRate(ctx, ccy)
 		if err != nil {
 			return "", "", "", "", "", err
 		}
-		calculationAmount = amountValue.Div(conversionRate)
+
+		calculationAmount = amountValue.Mul(currencyToUSDRate)
 	}
 
 	chargeValue := calculationAmount.Mul(chargePercent)
@@ -138,6 +144,35 @@ func (s *ChargesService) getUSDToCurrencyRate(ctx context.Context, currency stri
 	}
 
 	reverseRate, reverseErr := s.rateRepo.GetRate(ctx, currency, "USD")
+	if reverseErr != nil {
+		return decimal.Decimal{}, err
+	}
+
+	parsedReverse, parseErr := decimal.NewFromString(strings.TrimSpace(reverseRate.BuyRate))
+	if parseErr != nil {
+		return decimal.Decimal{}, fmt.Errorf("invalid stored reverse buy rate: %w", parseErr)
+	}
+	if parsedReverse.LessThanOrEqual(decimal.Zero) {
+		return decimal.Decimal{}, fmt.Errorf("stored reverse buy rate must be greater than zero")
+	}
+
+	return decimal.NewFromInt(1).Div(parsedReverse), nil
+}
+
+func (s *ChargesService) getCurrencyToUSDRate(ctx context.Context, currency string) (decimal.Decimal, error) {
+	rate, err := s.rateRepo.GetRate(ctx, currency, "USD")
+	if err == nil {
+		parsed, parseErr := decimal.NewFromString(strings.TrimSpace(rate.BuyRate))
+		if parseErr != nil {
+			return decimal.Decimal{}, fmt.Errorf("invalid stored buy rate: %w", parseErr)
+		}
+		if parsed.LessThanOrEqual(decimal.Zero) {
+			return decimal.Decimal{}, fmt.Errorf("stored buy rate must be greater than zero")
+		}
+		return parsed, nil
+	}
+
+	reverseRate, reverseErr := s.rateRepo.GetRate(ctx, "USD", currency)
 	if reverseErr != nil {
 		return decimal.Decimal{}, err
 	}
