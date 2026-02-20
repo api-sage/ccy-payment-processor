@@ -105,13 +105,14 @@ func (s *RateService) ConvertRate(ctx context.Context, amount string, fromCcy st
 		return "", "", "", fmt.Errorf("amount must be greater than zero")
 	}
 
-	rateType := resolveRateType(fromCurrency, toCurrency)
-
 	rate, err := s.rateRepo.GetRate(ctx, fromCurrency, toCurrency)
 	if err == nil {
-		usedRate, parseErr := selectRateByType(rate, rateType)
+		usedRate, parseErr := decimal.NewFromString(strings.TrimSpace(rate.Rate))
 		if parseErr != nil {
-			return "", "", "", fmt.Errorf("invalid stored %s rate: %w", rateType, parseErr)
+			return "", "", "", fmt.Errorf("invalid stored rate: %w", parseErr)
+		}
+		if usedRate.LessThanOrEqual(decimal.Zero) {
+			return "", "", "", fmt.Errorf("stored rate must be greater than zero")
 		}
 
 		converted := parsedAmount.Mul(usedRate)
@@ -123,10 +124,9 @@ func (s *RateService) ConvertRate(ctx context.Context, amount string, fromCcy st
 		return "", "", "", err
 	}
 
-	inverseRateType := oppositeRateType(rateType)
-	inverseValue, parseErr := selectRateByType(inverseRate, inverseRateType)
+	inverseValue, parseErr := decimal.NewFromString(strings.TrimSpace(inverseRate.Rate))
 	if parseErr != nil {
-		return "", "", "", fmt.Errorf("invalid stored inverse %s rate: %w", inverseRateType, parseErr)
+		return "", "", "", fmt.Errorf("invalid stored inverse rate: %w", parseErr)
 	}
 	if inverseValue.Equal(decimal.Zero) {
 		return "", "", "", fmt.Errorf("inverse rate cannot be zero")
@@ -183,44 +183,8 @@ func mapRateToResponse(rate domain.Rate) models.RateResponse {
 		ID:           rate.ID,
 		FromCurrency: rate.FromCurrency,
 		ToCurrency:   rate.ToCurrency,
-		SellRate:     rate.SellRate,
-		BuyRate:      rate.BuyRate,
+		Rate:         rate.Rate,
 		RateDate:     rate.RateDate.Format("2006-01-02"),
 		CreatedAt:    rate.CreatedAt.Format(time.RFC3339),
 	}
-}
-
-func resolveRateType(fromCurrency string, toCurrency string) string {
-	if fromCurrency == "USD" && toCurrency != "USD" {
-		return "sell"
-	}
-	if fromCurrency != "USD" && toCurrency == "USD" {
-		return "buy"
-	}
-
-	return "sell"
-}
-
-func oppositeRateType(rateType string) string {
-	if rateType == "buy" {
-		return "sell"
-	}
-	return "buy"
-}
-
-func selectRateByType(rate domain.Rate, rateType string) (decimal.Decimal, error) {
-	raw := strings.TrimSpace(rate.SellRate)
-	if rateType == "buy" {
-		raw = strings.TrimSpace(rate.BuyRate)
-	}
-
-	parsed, err := decimal.NewFromString(raw)
-	if err != nil {
-		return decimal.Decimal{}, err
-	}
-	if parsed.LessThanOrEqual(decimal.Zero) {
-		return decimal.Decimal{}, fmt.Errorf("%s rate must be greater than zero", rateType)
-	}
-
-	return parsed, nil
 }
