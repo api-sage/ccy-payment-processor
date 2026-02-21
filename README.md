@@ -23,6 +23,29 @@ The command starts:
 
 The app runs migrations on startup and ensures default rates/internal transient accounts exist.
 
+## How to test transfers
+
+To test `/transfer-funds`, you need at least a valid sender account number.
+
+Recommended flow:
+
+1. Create a user with `POST /create-user`.
+   - This returns a `customerId`.
+2. Create account(s) with `POST /create-account` using that `customerId` with an initial deposit of atleast 1 unit of the currency specified.
+   - Supported currencies are only: `USD`, `EUR`, `GBP`, `NGN`.
+   - One customer can have multiple accounts across different currencies, but not duplicate account for the same currency.
+3. Fund the sender account (for example via `POST /deposit-funds`).
+4. Call `POST /transfer-funds`.
+
+Transfer mode selection:
+- Internal transfer:
+  - Set `beneficiaryBankCode` to `100100`.
+  - Beneficiary account must be an internal account in this app.
+- External transfer:
+  - Set `beneficiaryBankCode` to a participant bank code from `GET /get-participant-banks`.
+  - External transfers terminate in an external GL account in the DB (not a real beneficiary account in this app).
+  - Once the external GL is credited and external reference is generated, the system assumes beneficiary value has been delivered via beneficiary bank.
+
 ## What to change before running on another machine
 
 Edit `docker-compose.yml`.
