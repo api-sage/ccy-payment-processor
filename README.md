@@ -46,7 +46,7 @@ Transfer mode selection:
   - External transfers terminate in an external GL account in the DB (not a real beneficiary account in this app).
   - Once the external GL is credited and external reference is generated, the system assumes beneficiary value has been delivered via beneficiary bank.
 
-## What to change before running on another machine
+## (OPTIONAL) What to change before running on another machine 
 
 Edit `docker-compose.yml`.
 
