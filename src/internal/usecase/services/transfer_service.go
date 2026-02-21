@@ -314,11 +314,11 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 
 func (s *TransferService) processExternalTransfer(ctx context.Context, req models.InternalTransferRequest) (commons.Response[models.InternalTransferResponse], error) {
 	beneficiaryBankCode := strings.TrimSpace(req.BeneficiaryBankCode)
-	isValidBankCode, err := s.isKnownParticipantBankCode(ctx, beneficiaryBankCode)
+	beneficiaryBankName, foundBankCode, err := s.getParticipantBankNameByCode(ctx, beneficiaryBankCode)
 	if err != nil {
 		return commons.ErrorResponse[models.InternalTransferResponse]("failed to process transfer", "Unable to process transfer right now"), err
 	}
-	if !isValidBankCode {
+	if !foundBankCode {
 		validationErr := fmt.Errorf("beneficiaryBankCode is not supported")
 		return commons.ErrorResponse[models.InternalTransferResponse]("validation failed", validationErr.Error()), validationErr
 	}
@@ -397,7 +397,7 @@ func (s *TransferService) processExternalTransfer(ctx context.Context, req model
 			CreditAccountNumber:  stringPtr(creditAccountNumber),
 			BeneficiaryBankCode:  stringPtr(beneficiaryBankCode),
 			DebitBankName:        stringPtr(req.DebitBankName),
-			CreditBankName:       stringPtr(req.CreditBankName),
+			CreditBankName:       stringPtr(beneficiaryBankName),
 			DebitCurrency:        debitCurrency,
 			CreditCurrency:       creditCurrency,
 			DebitAmount:          debitAmount,
@@ -463,6 +463,24 @@ func (s *TransferService) processExternalTransfer(ctx context.Context, req model
 		EntryType:         domain.LedgerEntryDebit,
 		Currency:          creditCurrency,
 		Amount:            creditAmount,
+	})
+	_, _ = s.transientAccountTransactionRepo.Create(ctx, domain.TransientAccountTransaction{
+		TransferID:        createdTransfer.ID,
+		ExternalRefernece: valueOrEmpty(createdTransfer.ExternalRefernece),
+		DebitedAccount:    s.internalTransientAccountNumber,
+		CreditedAccount:   s.internalChargesAccountNumber,
+		EntryType:         domain.LedgerEntryDebit,
+		Currency:          debitCurrency,
+		Amount:            chargeAmount,
+	})
+	_, _ = s.transientAccountTransactionRepo.Create(ctx, domain.TransientAccountTransaction{
+		TransferID:        createdTransfer.ID,
+		ExternalRefernece: valueOrEmpty(createdTransfer.ExternalRefernece),
+		DebitedAccount:    s.internalTransientAccountNumber,
+		CreditedAccount:   s.internalVATAccountNumber,
+		EntryType:         domain.LedgerEntryDebit,
+		Currency:          debitCurrency,
+		Amount:            vatAmount,
 	})
 	_, _ = s.transientAccountTransactionRepo.Create(ctx, domain.TransientAccountTransaction{
 		TransferID:        createdTransfer.ID,
@@ -551,22 +569,23 @@ func generateThirtyDigitTransferReference() string {
 }
 
 func generateExternalTransferReference() string {
-	return "EXT" + generateThirtyDigitTransferReference()
+	base := generateThirtyDigitTransferReference()
+	return "EXT" + base[:27]
 }
 
-func (s *TransferService) isKnownParticipantBankCode(ctx context.Context, bankCode string) (bool, error) {
+func (s *TransferService) getParticipantBankNameByCode(ctx context.Context, bankCode string) (string, bool, error) {
 	banks, err := s.participantBankRepo.GetAll(ctx)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 
 	trimmedCode := strings.TrimSpace(bankCode)
 	for _, bank := range banks {
 		if strings.TrimSpace(bank.BankCode) == trimmedCode {
-			return true, nil
+			return strings.TrimSpace(bank.BankName), true, nil
 		}
 	}
-	return false, nil
+	return "", false, nil
 }
 
 func (s *TransferService) resolveExternalGLAccountNumber(currency string) (string, error) {
