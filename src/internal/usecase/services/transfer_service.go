@@ -141,27 +141,12 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 	}
 
 	convertedAmount, rateUsed, _, err := s.rateService.ConvertRate(ctx, debitAmount, debitCurrency, creditCurrency)
-	_, _, charge, vat, totalDebitAmount, err := s.chargeService.GetCharges(ctx, debitAmount.String(), debitCurrency)
+	_, _, chargeAmount, vatAmount, sumTotal, err := s.chargeService.GetCharges(ctx, debitAmount, debitCurrency)
 	if err != nil {
 		return commons.ErrorResponse[models.InternalTransferResponse]("failed to process transfer", "Unable to process transfer right now"), err
 	}
 
 	creditAmount := convertedAmount
-
-	chargeAmount, err := decimal.NewFromString(strings.TrimSpace(charge))
-	if err != nil {
-		return commons.ErrorResponse[models.InternalTransferResponse]("failed to process transfer", "Unable to process transfer right now"), err
-	}
-
-	vatAmount, err := decimal.NewFromString(strings.TrimSpace(vat))
-	if err != nil {
-		return commons.ErrorResponse[models.InternalTransferResponse]("failed to process transfer", "Unable to process transfer right now"), err
-	}
-
-	sumTotal, err := decimal.NewFromString(strings.TrimSpace(totalDebitAmount))
-	if err != nil {
-		return commons.ErrorResponse[models.InternalTransferResponse]("failed to process transfer", "Unable to process transfer right now"), err
-	}
 
 	debitAvailable, parseErr := decimal.NewFromString(strings.TrimSpace(debitAccount.AvailableBalance))
 	if parseErr != nil {

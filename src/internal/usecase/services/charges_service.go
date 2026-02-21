@@ -69,26 +69,18 @@ func (s *ChargesService) GetChargesSummary(ctx context.Context, req models.GetCh
 	return commons.SuccessResponse("charges fetched successfully", response), nil
 }
 
-func (s *ChargesService) GetCharges(ctx context.Context, amount string, fromCurrency string) (string, string, string, string, string, error) {
-	trimmedAmount := strings.TrimSpace(amount)
+func (s *ChargesService) GetCharges(ctx context.Context, amount decimal.Decimal, fromCurrency string) (decimal.Decimal, string, decimal.Decimal, decimal.Decimal, decimal.Decimal, error) {
 	ccy := strings.ToUpper(strings.TrimSpace(fromCurrency))
 
-	if trimmedAmount == "" {
-		return "", "", "", "", "", fmt.Errorf("amount is required")
-	}
 	if ccy == "" {
-		return "", "", "", "", "", fmt.Errorf("fromCurrency is required")
+		return decimal.Decimal{}, "", decimal.Decimal{}, decimal.Decimal{}, decimal.Decimal{}, fmt.Errorf("fromCurrency is required")
 	}
 	if len(ccy) != 3 {
-		return "", "", "", "", "", fmt.Errorf("fromCurrency must be 3 characters")
+		return decimal.Decimal{}, "", decimal.Decimal{}, decimal.Decimal{}, decimal.Decimal{}, fmt.Errorf("fromCurrency must be 3 characters")
 	}
 
-	amountValue, err := decimal.NewFromString(trimmedAmount)
-	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("amount must be numeric: %w", err)
-	}
-	if amountValue.LessThanOrEqual(decimal.Zero) {
-		return "", "", "", "", "", fmt.Errorf("amount must be greater than zero")
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return decimal.Decimal{}, "", decimal.Decimal{}, decimal.Decimal{}, decimal.Decimal{}, fmt.Errorf("amount must be greater than zero")
 	}
 
 	chargePercent := s.chargePercent.Div(decimal.NewFromInt(100))
@@ -96,20 +88,21 @@ func (s *ChargesService) GetCharges(ctx context.Context, amount string, fromCurr
 	chargeMin := s.chargeMin
 	chargeMax := s.chargeMax
 
-	calculationAmount := amountValue
+	calculationAmount := amount
 	conversionRate := decimal.NewFromInt(1)
+	var err error
 	if ccy != "USD" {
 		currencyToUSDRate, currencyToUSDErr := s.getCurrencyToUSDRate(ctx, ccy)
 		if currencyToUSDErr != nil {
-			return "", "", "", "", "", currencyToUSDErr
+			return decimal.Decimal{}, "", decimal.Decimal{}, decimal.Decimal{}, decimal.Decimal{}, currencyToUSDErr
 		}
 
 		conversionRate, err = s.getUSDToCurrencyRate(ctx, ccy)
 		if err != nil {
-			return "", "", "", "", "", err
+			return decimal.Decimal{}, "", decimal.Decimal{}, decimal.Decimal{}, decimal.Decimal{}, err
 		}
 
-		calculationAmount = amountValue.Mul(currencyToUSDRate)
+		calculationAmount = amount.Mul(currencyToUSDRate)
 	}
 
 	chargeValue := calculationAmount.Mul(chargePercent)
@@ -126,9 +119,9 @@ func (s *ChargesService) GetCharges(ctx context.Context, amount string, fromCurr
 		vatValue = vatValue.Mul(conversionRate)
 	}
 
-	totalValue := amountValue.Add(chargeValue).Add(vatValue)
+	totalValue := amount.Add(chargeValue).Add(vatValue)
 
-	return amountValue.StringFixed(2), ccy, chargeValue.StringFixed(2), vatValue.StringFixed(2), totalValue.StringFixed(2), nil
+	return amount, ccy, chargeValue, vatValue, totalValue, nil
 }
 
 func (s *ChargesService) getUSDToCurrencyRate(ctx context.Context, currency string) (decimal.Decimal, error) {

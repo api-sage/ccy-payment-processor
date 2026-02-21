@@ -136,7 +136,7 @@ const openAPI = `{
                 "required": ["accountNumber", "amount"],
                 "properties": {
                   "accountNumber": {"type": "string", "example": "0123456789"},
-                  "amount": {"type": "string", "example": "100.00"}
+                  "amount": {"type": "number", "format": "double", "example": 100.00}
                 }
               }
             }
