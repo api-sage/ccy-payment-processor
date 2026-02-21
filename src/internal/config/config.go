@@ -133,6 +133,10 @@ func Load() (Config, error) {
 		InternalTransientAccountNumber: internalTransientAccountNumber,
 		InternalChargesAccountNumber:   internalChargesAccountNumber,
 		InternalVATAccountNumber:       internalVATAccountNumber,
+		ExternalUSDGLAccountNumber:     externalUSDGLAccountNumber,
+		ExternalGBPGLAccountNumber:     externalGBPGLAccountNumber,
+		ExternalEURGLAccountNumber:     externalEURGLAccountNumber,
+		ExternalNGNGLAccountNumber:     externalNGNGLAccountNumber,
 	}, nil
 }
 

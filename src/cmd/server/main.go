@@ -76,7 +76,7 @@ func main() {
 		cfg.ExternalEURGLAccountNumber,
 		cfg.ExternalNGNGLAccountNumber,
 	); err != nil {
-		log.Fatalf("ensure internal transient accounts: %v", err)
+		log.Fatalf("ensure transient accounts: %v", err)
 	}
 	transientAccountTransactionRepo := implementations.NewTransientAccountTransactionRepository(db)
 	transferService := services.NewTransferService(
