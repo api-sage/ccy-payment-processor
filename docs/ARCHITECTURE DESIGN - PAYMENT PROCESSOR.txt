@@ -166,14 +166,64 @@ External transfer flow
 
 8) Startup behavior
 -------------------
-- On startup:
-  - run SQL migrations from `src/migrations`.
-  - ensure default rates exist (`EnsureDefaultRates`).
-  - ensure transient/internal GL accounts exist (`EnsureInternalAccounts`).
+- On startup, the app:
+  - runs SQL migrations from `src/migrations`.
+  - ensures default rates exist (`EnsureDefaultRates`).
+  - ensures transient/internal GL accounts exist (`EnsureInternalAccounts`).
 - Configuration includes:
   - `GREY_BANK_CODE`
   - charge/vat percentages and bounds
   - internal transient/charges/vat account numbers
-  - external USD/GBP/EUR/NGN GL account numbers.
+ - external USD/GBP/EUR/NGN GL account numbers.
+
+
+9) Design decisions, trade-offs, and improvements with more time
+-----------------------------------------------------------------
+Security and data privacy
+- Current decision:
+  - Transaction PIN is used for user-level authorization.
+  - Channel authorization is currently driven by config-based basic auth.
+- Trade-off:
+  - Fast to implement and works for controlled channels, but trust is still heavily request-payload driven.
+- Improvement plan:
+  - Enforce JWT from clients and derive trusted metadata (for example `customerId` and `debitAccountNumber`) from token claims instead of relying only on payload.
+  - Add end-to-end encryption for sensitive payload fields and records (for example AES-256 with managed keys, and PGP for selected payload exchange use cases).
+  - Build a dedicated channel authentication service for stronger source validation and policy-based channel authorization.
+
+Scalability
+- Current decision:
+  - Transfers are processed synchronously over HTTP with direct DB posting.
+- Trade-off:
+  - Simpler request/response flow, but increased pressure on DB and service threads during high traffic.
+- Improvement plan:
+  - Introduce queue/stream-driven transfer intake using Kafka, RabbitMQ, or Amazon SQS.
+  - Use async workers to consume queued transfer requests and process postings.
+  - Build a dedicated settlement service using pub/sub (Kafka or RabbitMQ) for near real-time asynchronous settlement.
+  - Add Redis caching for low-churn endpoints such as `/get-account` and `/get-participant-banks`.
+
+Operability and support
+- Current decision:
+  - Application logs are local/service-level logs.
+- Trade-off:
+  - Limited centralized search, correlation, and alerting for production support.
+- Improvement plan:
+  - Implement centralized logging with indexing and dashboards, for example:
+    - ELK stack (Elasticsearch + Logstash/Beats + Kibana)
+    - Grafana Loki + Promtail + Grafana
+  - Add correlation IDs across HTTP requests, transfer records, and settlement events for easier incident tracing.
+
+AML, audit and compliance
+- Current decision:
+  - Core transfer posting is consistent, atomic per leg, and auditable through transfer + transient transaction tables.
+- Trade-off:
+  - Some decimal response values can occasionally show very small precision artifacts (for example `0.000000001`) which can affect reporting readability.
+  - Customer/account onboarding checks are functional but not yet modeled for deeper compliance controls.
+- Improvement plan:
+  - Tighten decimal scale and rounding policy consistently for reporting, reconciliation, and audit exports.
+  - Strengthen onboarding and account-integrity controls:
+    - Enforce stronger identity uniqueness rules (for example no duplicate ID type/value pairs).
+    - Apply KYC-tier transaction and balance limits.
+    - Maintain customer mandates in a dedicated table.
+  - Expand onboarding controls as a foundation for stronger transaction monitoring and AML/CFT/CPF compliance.
 
 ================================================================================
