@@ -26,6 +26,9 @@ type InternalTransferRequest struct {
 	DebitAccountNumber  string `json:"debitAccountNumber"`
 	CreditAccountNumber string `json:"creditAccountNumber"`
 	BeneficiaryBankCode string `json:"beneficiaryBankCode"`
+	TransactionPIN      string `json:"transactionPIN"`
+	DebitBankName       string `json:"debitBankName"`
+	CreditBankName      string `json:"creditBankName"`
 	DebitCurrency       string `json:"debitCurrency"`
 	CreditCurrency      string `json:"creditCurrency"`
 	DebitAmount         string `json:"debitAmount"`
@@ -45,6 +48,15 @@ func (r InternalTransferRequest) Validate() error {
 	beneficiaryBankCode := strings.TrimSpace(r.BeneficiaryBankCode)
 	if len(beneficiaryBankCode) != 6 || !digitsOnly(beneficiaryBankCode) {
 		errs = append(errs, "beneficiaryBankCode must be exactly 6 digits")
+	}
+	if strings.TrimSpace(r.TransactionPIN) == "" {
+		errs = append(errs, "transactionPIN is required")
+	}
+	if strings.TrimSpace(r.DebitBankName) == "" {
+		errs = append(errs, "debitBankName is required")
+	}
+	if strings.TrimSpace(r.CreditBankName) == "" {
+		errs = append(errs, "creditBankName is required")
 	}
 
 	debitCurrency := strings.ToUpper(strings.TrimSpace(r.DebitCurrency))
