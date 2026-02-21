@@ -49,6 +49,9 @@ func main() {
 	participantBankController := controller.NewParticipantBankController(participantBankService)
 
 	rateRepo := implementations.NewRateRepository(db)
+	if err := rateRepo.EnsureDefaultRates(ctx); err != nil {
+		log.Fatalf("ensure default rates: %v", err)
+	}
 	rateService := services.NewRateService(rateRepo)
 	rateController := controller.NewRateController(rateService)
 
