@@ -36,6 +36,8 @@ INSERT INTO transfers (
 	debit_account_number,
 	credit_account_number,
 	beneficiary_bank_code,
+	debit_bank_name,
+	credit_bank_name,
 	debit_currency,
 	credit_currency,
 	debit_amount,
@@ -47,7 +49,7 @@ INSERT INTO transfers (
 	status,
 	audit_payload
 ) VALUES (
-	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 )
 RETURNING id, created_at, updated_at, processed_at`
 
@@ -66,6 +68,8 @@ RETURNING id, created_at, updated_at, processed_at`
 		transfer.DebitAccountNumber,
 		transfer.CreditAccountNumber,
 		transfer.BeneficiaryBankCode,
+		transfer.DebitBankName,
+		transfer.CreditBankName,
 		transfer.DebitCurrency,
 		transfer.CreditCurrency,
 		transfer.DebitAmount,
@@ -113,19 +117,21 @@ SET external_refernece = $2,
     debit_account_number = $4,
     credit_account_number = $5,
     beneficiary_bank_code = $6,
-    debit_currency = $7,
-    credit_currency = $8,
-    debit_amount = $9,
-    credit_amount = $10,
-    fcy_rate = $11,
-    charge_amount = $12,
-    vat_amount = $13,
-    narration = $14,
-    status = $15,
-    audit_payload = $16,
+    debit_bank_name = $7,
+    credit_bank_name = $8,
+    debit_currency = $9,
+    credit_currency = $10,
+    debit_amount = $11,
+    credit_amount = $12,
+    fcy_rate = $13,
+    charge_amount = $14,
+    vat_amount = $15,
+    narration = $16,
+    status = $17,
+    audit_payload = $18,
     updated_at = NOW(),
     processed_at = CASE
-        WHEN $15 IN ('SUCCESS', 'FAILED', 'CLOSED') THEN NOW()
+        WHEN $17 IN ('SUCCESS', 'FAILED', 'CLOSED') THEN NOW()
         ELSE processed_at
     END
 WHERE id = $1
@@ -146,6 +152,8 @@ RETURNING created_at, updated_at, processed_at`
 		transfer.DebitAccountNumber,
 		transfer.CreditAccountNumber,
 		transfer.BeneficiaryBankCode,
+		transfer.DebitBankName,
+		transfer.CreditBankName,
 		transfer.DebitCurrency,
 		transfer.CreditCurrency,
 		transfer.DebitAmount,
@@ -207,6 +215,8 @@ SELECT id,
        debit_account_number,
        credit_account_number,
        beneficiary_bank_code,
+       debit_bank_name,
+       credit_bank_name,
        debit_currency,
        credit_currency,
        debit_amount,
@@ -233,6 +243,8 @@ LIMIT 1`
 		transactionReferenceDB sql.NullString
 		creditAccountNumber    sql.NullString
 		beneficiaryBankCode    sql.NullString
+		debitBankName          sql.NullString
+		creditBankName         sql.NullString
 		narration              sql.NullString
 		processedAt            sql.NullTime
 	)
@@ -244,6 +256,8 @@ LIMIT 1`
 		&transfer.DebitAccountNumber,
 		&creditAccountNumber,
 		&beneficiaryBankCode,
+		&debitBankName,
+		&creditBankName,
 		&transfer.DebitCurrency,
 		&transfer.CreditCurrency,
 		&transfer.DebitAmount,
@@ -289,6 +303,14 @@ LIMIT 1`
 	if beneficiaryBankCode.Valid {
 		value := beneficiaryBankCode.String
 		transfer.BeneficiaryBankCode = &value
+	}
+	if debitBankName.Valid {
+		value := debitBankName.String
+		transfer.DebitBankName = &value
+	}
+	if creditBankName.Valid {
+		value := creditBankName.String
+		transfer.CreditBankName = &value
 	}
 	if narration.Valid {
 		value := narration.String

@@ -170,6 +170,8 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 			DebitAccountNumber:   debitAccountNumber,
 			CreditAccountNumber:  stringPtr(creditAccountNumber),
 			BeneficiaryBankCode:  stringPtr(beneficiaryBankCode),
+			DebitBankName:        stringPtr(req.DebitBankName),
+			CreditBankName:       stringPtr(req.CreditBankName),
 			DebitCurrency:        debitCurrency,
 			CreditCurrency:       creditCurrency,
 			DebitAmount:          debitAmount.StringFixed(2),

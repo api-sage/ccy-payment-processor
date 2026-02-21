@@ -18,6 +18,8 @@ type Transfer struct {
 	DebitAccountNumber   string
 	CreditAccountNumber  *string
 	BeneficiaryBankCode  *string
+	DebitBankName        *string
+	CreditBankName       *string
 	DebitCurrency        string
 	CreditCurrency       string
 	DebitAmount          string
