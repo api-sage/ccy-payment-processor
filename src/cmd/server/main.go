@@ -70,6 +70,7 @@ func main() {
 		transientAccountRepo,
 		transientAccountTransactionRepo,
 		rateRepo,
+		userService,
 		rateService,
 		chargesService,
 		cfg.GreyBankCode,

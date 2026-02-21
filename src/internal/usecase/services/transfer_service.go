@@ -25,6 +25,7 @@ type TransferService struct {
 	transientAccountRepo            repo_interfaces.TransientAccountRepository
 	transientAccountTransactionRepo repo_interfaces.TransientAccountTransactionRepository
 	rateRepo                        repo_interfaces.RateRepository
+	userService                     service_interfaces.UserService
 	rateService                     service_interfaces.RateService
 	chargeService                   service_interfaces.ChargesService
 	greyBankCode                    string
@@ -39,6 +40,7 @@ func NewTransferService(
 	transientAccountRepo repo_interfaces.TransientAccountRepository,
 	transientAccountTransactionRepo repo_interfaces.TransientAccountTransactionRepository,
 	rateRepo repo_interfaces.RateRepository,
+	userService service_interfaces.UserService,
 	rateService service_interfaces.RateService,
 	chargeService service_interfaces.ChargesService,
 	greyBankCode string,
@@ -52,6 +54,7 @@ func NewTransferService(
 		transientAccountRepo:            transientAccountRepo,
 		transientAccountTransactionRepo: transientAccountTransactionRepo,
 		rateRepo:                        rateRepo,
+		userService:                     userService,
 		rateService:                     rateService,
 		chargeService:                   chargeService,
 		greyBankCode:                    strings.TrimSpace(greyBankCode),
@@ -118,6 +121,22 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 	}
 	if !strings.EqualFold(strings.TrimSpace(creditAccount.Currency), creditCurrency) {
 		err := fmt.Errorf("credit currency does not match credit account currency")
+		return commons.ErrorResponse[models.InternalTransferResponse]("validation failed", err.Error()), err
+	}
+	pinVerificationResp, pinVerificationErr := s.userService.VerifyUserPin(
+		ctx,
+		debitAccount.CustomerID,
+		strings.TrimSpace(req.TransactionPIN),
+	)
+	if pinVerificationErr != nil {
+		if pinVerificationResp.Message == "invalid pin" {
+			err := fmt.Errorf("invalid transactionPIN")
+			return commons.ErrorResponse[models.InternalTransferResponse]("validation failed", err.Error()), err
+		}
+		return commons.ErrorResponse[models.InternalTransferResponse]("failed to process transfer", "Unable to process transfer right now"), pinVerificationErr
+	}
+	if pinVerificationResp.Data == nil || !pinVerificationResp.Data.IsValidPin {
+		err := fmt.Errorf("invalid transactionPIN")
 		return commons.ErrorResponse[models.InternalTransferResponse]("validation failed", err.Error()), err
 	}
 
