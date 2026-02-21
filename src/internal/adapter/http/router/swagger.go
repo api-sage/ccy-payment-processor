@@ -315,7 +315,7 @@ const openAPI = `{
                   "creditBankName": {"type": "string", "example": "Grey"},
                   "debitCurrency": {"type": "string", "example": "USD"},
                   "creditCurrency": {"type": "string", "example": "USD"},
-                  "debitAmount": {"type": "string", "example": "100.00"},
+                  "debitAmount": {"type": "number", "format": "double", "example": 100.00},
                   "narration": {
                     "type": "string",
                     "enum": [

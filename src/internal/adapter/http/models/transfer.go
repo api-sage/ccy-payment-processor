@@ -23,16 +23,16 @@ var allowedNarrations = []string{
 }
 
 type InternalTransferRequest struct {
-	DebitAccountNumber  string `json:"debitAccountNumber"`
-	CreditAccountNumber string `json:"creditAccountNumber"`
-	BeneficiaryBankCode string `json:"beneficiaryBankCode"`
-	TransactionPIN      string `json:"transactionPIN"`
-	DebitBankName       string `json:"debitBankName"`
-	CreditBankName      string `json:"creditBankName"`
-	DebitCurrency       string `json:"debitCurrency"`
-	CreditCurrency      string `json:"creditCurrency"`
-	DebitAmount         string `json:"debitAmount"`
-	Narration           string `json:"narration"`
+	DebitAccountNumber  string          `json:"debitAccountNumber"`
+	CreditAccountNumber string          `json:"creditAccountNumber"`
+	BeneficiaryBankCode string          `json:"beneficiaryBankCode"`
+	TransactionPIN      string          `json:"transactionPIN"`
+	DebitBankName       string          `json:"debitBankName"`
+	CreditBankName      string          `json:"creditBankName"`
+	DebitCurrency       string          `json:"debitCurrency"`
+	CreditCurrency      string          `json:"creditCurrency"`
+	DebitAmount         decimal.Decimal `json:"debitAmount"`
+	Narration           string          `json:"narration"`
 }
 
 func (r InternalTransferRequest) Validate() error {
@@ -68,16 +68,8 @@ func (r InternalTransferRequest) Validate() error {
 		errs = append(errs, "creditCurrency must be 3 characters")
 	}
 
-	amountRaw := strings.TrimSpace(r.DebitAmount)
-	if amountRaw == "" {
-		errs = append(errs, "debitAmount is required")
-	} else {
-		value, err := decimal.NewFromString(amountRaw)
-		if err != nil {
-			errs = append(errs, "debitAmount must be numeric")
-		} else if value.LessThanOrEqual(decimal.Zero) {
-			errs = append(errs, "debitAmount must be greater than zero")
-		}
+	if r.DebitAmount.LessThanOrEqual(decimal.Zero) {
+		errs = append(errs, "debitAmount must be greater than zero")
 	}
 
 	if !isAllowedNarration(strings.TrimSpace(r.Narration)) {
@@ -91,20 +83,20 @@ func (r InternalTransferRequest) Validate() error {
 }
 
 type InternalTransferResponse struct {
-	TransactionReference string `json:"transactionReference"`
-	DebitAccountNumber   string `json:"debitAccountNumber"`
-	CreditAccountNumber  string `json:"creditAccountNumber"`
-	BeneficiaryBankCode  string `json:"beneficiaryBankCode"`
-	DebitCurrency        string `json:"debitCurrency"`
-	CreditCurrency       string `json:"creditCurrency"`
-	DebitAmount          string `json:"debitAmount"`
-	CreditAmount         string `json:"creditAmount"`
-	FcyRate              string `json:"fcyRate"`
-	ChargeAmount         string `json:"chargeAmount"`
-	VATAmount            string `json:"vatAmount"`
-	SumTotalDebit        string `json:"sumTotalDebit"`
-	Narration            string `json:"narration"`
-	Status               string `json:"status"`
+	TransactionReference string           `json:"transactionReference"`
+	DebitAccountNumber   string           `json:"debitAccountNumber"`
+	CreditAccountNumber  string           `json:"creditAccountNumber"`
+	BeneficiaryBankCode  string           `json:"beneficiaryBankCode"`
+	DebitCurrency        string           `json:"debitCurrency"`
+	CreditCurrency       string           `json:"creditCurrency"`
+	DebitAmount          *decimal.Decimal `json:"debitAmount"`
+	CreditAmount         *decimal.Decimal `json:"creditAmount"`
+	FcyRate              *decimal.Decimal `json:"fcyRate"`
+	ChargeAmount         *decimal.Decimal `json:"chargeAmount"`
+	VATAmount            *decimal.Decimal `json:"vatAmount"`
+	SumTotalDebit        *decimal.Decimal `json:"sumTotalDebit"`
+	Narration            string           `json:"narration"`
+	Status               string           `json:"status"`
 }
 
 func isAllowedNarration(value string) bool {

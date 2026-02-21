@@ -90,7 +90,7 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 
 	debitCurrency := strings.ToUpper(strings.TrimSpace(req.DebitCurrency))
 	creditCurrency := strings.ToUpper(strings.TrimSpace(req.CreditCurrency))
-	debitAmount, _ := decimal.NewFromString(strings.TrimSpace(req.DebitAmount))
+	debitAmount := req.DebitAmount
 
 	debitAccount, err := s.accountRepo.GetByAccountNumber(ctx, debitAccountNumber)
 	if err != nil {
@@ -220,7 +220,7 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 		debitAccountNumber,
 		sumTotal.StringFixed(2),
 		s.internalTransientAccountNumber,
-		req.DebitAmount,
+		debitAmount.StringFixed(2),
 		creditAccountNumber,
 		creditAmount.StringFixed(2),
 	)
@@ -256,7 +256,7 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 		logger.Error("transfer service convert settlement fees to usd failed", err, logger.Fields{
 			"transferId": createdTransfer.ID,
 		})
-		response := mapTransferToResponse(createdTransfer, sumTotal.StringFixed(2))
+		response := mapTransferToResponse(createdTransfer, sumTotal)
 		return commons.SuccessResponse("Transaction successful. Settlement pending", response), nil
 	}
 
@@ -274,7 +274,7 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 		logger.Error("transfer service settlement failed", settlementErr, logger.Fields{
 			"transferId": createdTransfer.ID,
 		})
-		response := mapTransferToResponse(createdTransfer, sumTotal.StringFixed(2))
+		response := mapTransferToResponse(createdTransfer, sumTotal)
 		return commons.SuccessResponse("Transaction successful. Settlement pending", response), nil
 	}
 
@@ -318,7 +318,7 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 	_ = s.transferRepo.UpdateStatus(ctx, createdTransfer.ID, domain.TransferStatusClosed)
 	createdTransfer.Status = domain.TransferStatusClosed
 
-	response := mapTransferToResponse(createdTransfer, sumTotal.StringFixed(2))
+	response := mapTransferToResponse(createdTransfer, sumTotal)
 	return commons.SuccessResponse("Transaction successful", response), nil
 }
 
@@ -358,7 +358,7 @@ func (s *TransferService) convertFeesToUSD(
 	return chargeUSD, vatUSD, nil
 }
 
-func mapTransferToResponse(transfer domain.Transfer, sumTotal string) models.InternalTransferResponse {
+func mapTransferToResponse(transfer domain.Transfer, sumTotal decimal.Decimal) models.InternalTransferResponse {
 	return models.InternalTransferResponse{
 		TransactionReference: valueOrEmpty(transfer.TransactionReference),
 		DebitAccountNumber:   transfer.DebitAccountNumber,
@@ -366,12 +366,12 @@ func mapTransferToResponse(transfer domain.Transfer, sumTotal string) models.Int
 		BeneficiaryBankCode:  valueOrEmpty(transfer.BeneficiaryBankCode),
 		DebitCurrency:        transfer.DebitCurrency,
 		CreditCurrency:       transfer.CreditCurrency,
-		DebitAmount:          transfer.DebitAmount,
-		CreditAmount:         transfer.CreditAmount,
-		FcyRate:              transfer.FCYRate,
-		ChargeAmount:         transfer.ChargeAmount,
-		VATAmount:            transfer.VATAmount,
-		SumTotalDebit:        sumTotal,
+		DebitAmount:          decimalPtrFromString(transfer.DebitAmount),
+		CreditAmount:         decimalPtrFromString(transfer.CreditAmount),
+		FcyRate:              decimalPtrFromString(transfer.FCYRate),
+		ChargeAmount:         decimalPtrFromString(transfer.ChargeAmount),
+		VATAmount:            decimalPtrFromString(transfer.VATAmount),
+		SumTotalDebit:        decimalPtr(sumTotal),
 		Narration:            valueOrEmpty(transfer.Narration),
 		Status:               string(transfer.Status),
 	}
@@ -403,4 +403,17 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func decimalPtr(value decimal.Decimal) *decimal.Decimal {
+	v := value
+	return &v
+}
+
+func decimalPtrFromString(value string) *decimal.Decimal {
+	parsed, err := decimal.NewFromString(strings.TrimSpace(value))
+	if err != nil {
+		return nil
+	}
+	return decimalPtr(parsed)
 }
