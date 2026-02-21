@@ -18,6 +18,45 @@ func NewTransientAccountRepository(db *sql.DB) *TransientAccountRepository {
 	return &TransientAccountRepository{db: db}
 }
 
+func (r *TransientAccountRepository) EnsureInternalAccounts(
+	ctx context.Context,
+	internalTransientAccountNumber string,
+	internalChargesAccountNumber string,
+	internalVATAccountNumber string,
+) error {
+	logger.Info("transient account repository ensure internal accounts", logger.Fields{
+		"internalTransientAccountNumber": internalTransientAccountNumber,
+		"internalChargesAccountNumber":   internalChargesAccountNumber,
+		"internalVATAccountNumber":       internalVATAccountNumber,
+	})
+
+	const query = `
+INSERT INTO transient_accounts (
+	account_number,
+	account_description,
+	currency,
+	available_balance
+) VALUES
+	($1, 'Internal Transient Account', 'MCY', 0.00),
+	($2, 'Internal Charges Account', 'USD', 5.00),
+	($3, 'Internal VAT Account', 'USD', 22.50)
+ON CONFLICT (account_number) DO NOTHING`
+
+	if _, err := r.db.ExecContext(
+		ctx,
+		query,
+		internalTransientAccountNumber,
+		internalChargesAccountNumber,
+		internalVATAccountNumber,
+	); err != nil {
+		logger.Error("transient account repository ensure internal accounts failed", err, nil)
+		return fmt.Errorf("ensure internal transient accounts: %w", err)
+	}
+
+	logger.Info("transient account repository ensure internal accounts success", nil)
+	return nil
+}
+
 func (r *TransientAccountRepository) DebitSuspenseAccount(ctx context.Context, suspenseAccountNumber string, currency string, amount string) error {
 	logger.Info("transient account repository debit", logger.Fields{
 		"accountNumber": suspenseAccountNumber,

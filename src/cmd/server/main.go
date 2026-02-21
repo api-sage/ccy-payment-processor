@@ -63,6 +63,14 @@ func main() {
 
 	transferRepo := implementations.NewTransferRepository(db)
 	transientAccountRepo := implementations.NewTransientAccountRepository(db)
+	if err := transientAccountRepo.EnsureInternalAccounts(
+		ctx,
+		cfg.InternalTransientAccountNumber,
+		cfg.InternalChargesAccountNumber,
+		cfg.InternalVATAccountNumber,
+	); err != nil {
+		log.Fatalf("ensure internal transient accounts: %v", err)
+	}
 	transientAccountTransactionRepo := implementations.NewTransientAccountTransactionRepository(db)
 	transferService := services.NewTransferService(
 		transferRepo,
