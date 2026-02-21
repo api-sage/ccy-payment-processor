@@ -17,17 +17,20 @@ import (
 
 type AccountService struct {
 	accountRepo         repo_interfaces.AccountRepository
+	userRepo            domain.UserRepository
 	participantBankRepo domain.ParticipantBankRepository
 	greyBankCode        string
 }
 
 func NewAccountService(
 	accountRepo repo_interfaces.AccountRepository,
+	userRepo domain.UserRepository,
 	participantBankRepo domain.ParticipantBankRepository,
 	greyBankCode string,
 ) *AccountService {
 	return &AccountService{
 		accountRepo:         accountRepo,
+		userRepo:            userRepo,
 		participantBankRepo: participantBankRepo,
 		greyBankCode:        strings.TrimSpace(greyBankCode),
 	}
@@ -172,10 +175,27 @@ func (s *AccountService) GetAccount(ctx context.Context, accountNumber string, b
 		return commons.ErrorResponse[models.GetAccountResponse]("failed to get account", "Unable to fetch account right now"), err
 	}
 
+	user, err := s.userRepo.GetByCustomerID(ctx, account.CustomerID)
+	if err != nil {
+		logger.Error("account service get user for account name failed", err, logger.Fields{
+			"accountNumber": accountNumber,
+			"customerId":    account.CustomerID,
+		})
+		if errors.Is(err, commons.ErrRecordNotFound) {
+			return commons.ErrorResponse[models.GetAccountResponse]("User not found"), err
+		}
+		return commons.ErrorResponse[models.GetAccountResponse]("failed to get account", "Unable to fetch account right now"), err
+	}
+
+	accountName := strings.TrimSpace(strings.Join([]string{
+		strings.TrimSpace(user.FirstName),
+		strings.TrimSpace(user.LastName),
+	}, " "))
+
 	response := models.GetAccountResponse{
 		ID:               account.ID,
 		CustomerID:       account.CustomerID,
-		AccountName:      account.CustomerID,
+		AccountName:      accountName,
 		AccountNumber:    account.AccountNumber,
 		BankCode:         bankCode,
 		BankName:         "Grey",
