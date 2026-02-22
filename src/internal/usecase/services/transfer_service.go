@@ -87,6 +87,7 @@ func NewTransferService(
 var transferRefCounter uint32
 
 func (s *TransferService) TransferFunds(ctx context.Context, req models.InternalTransferRequest) (commons.Response[models.InternalTransferResponse], error) {
+	transferStartTime := time.Now()
 	logger.Info("transfer service transfer request", logger.Fields{
 		"payload": logger.SanitizePayload(req),
 	})
@@ -386,6 +387,13 @@ func (s *TransferService) TransferFunds(ctx context.Context, req models.Internal
 	createdTransfer.Status = domain.TransferStatusClosed
 
 	response := mapTransferToResponse(createdTransfer, sumTotal)
+	transferDuration := time.Since(transferStartTime)
+	logger.Info("transfer completed successfully", logger.Fields{
+		"startTime":   transferStartTime.Format("2006-01-02 15:04:05.000"),
+		"endTime":     time.Now().Format("2006-01-02 15:04:05.000"),
+		"duration":    transferDuration.String(),
+		"transferRef": valueOrEmpty(createdTransfer.TransactionReference),
+	})
 	return commons.SuccessResponse("Transaction successful", response), nil
 }
 
