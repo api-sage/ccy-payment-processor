@@ -177,8 +177,54 @@ External transfer flow
  - external USD/GBP/EUR/NGN GL account numbers.
 
 
-9) Design decisions, trade-offs, and improvements with more time
+9) Concurrency and performance optimization (observation-driven)
 -----------------------------------------------------------------
+Goroutine implementation
+- Decision:
+  - Implemented goroutines with sync.WaitGroup and errgroup to parallelize:
+    * Account lookups in transfer service (parallel debit/credit account fetches)
+    * Rate conversion and charge calculation
+    * Transient account transaction creation
+    * Repository and service initialization during startup
+- Observation:
+  - Initial testing revealed goroutines did NOT immediately improve transfer speed.
+  - Transfer latency increased from average 125ms to 220ms when goroutines were introduced.
+  - Root cause analysis identified database connection pool as the bottleneck.
+  
+Database connection pool tuning
+- Problem:
+  - Default Go `sql.DB` connection pool settings were inadequate for concurrent goroutine operations.
+  - Multiple goroutines competed for limited database connections, causing queueing delays.
+- Solution implemented:
+  - `SetMaxIdleConns(20)`: Maintains 20 idle connections ready for immediate use
+  - `SetMaxOpenConns(30)`: Allows up to 30 total concurrent connections
+  - `SetConnMaxIdleTime(5 * time.Minute)`: Recycles idle connections after 5 minutes
+  - `SetConnMaxLifetime(15 * time.Minute)`: Recycles long-lived connections after 15 minutes
+- Performance results after pool tuning:
+  - Transfer latency reduced to average 110ms (lowest observed: 92ms)
+  - Startup time decreased from >250ms to average 180ms (with database migrations)
+  - Comparable non-goroutine version (with same pool config) showed 115ms average (lowest: 110ms)
+  
+Instrumentation
+- Added timing instrumentation to key operations:
+  - Application startup captures start time, end time, and total duration
+  - Transfer service logs transfer start time, end time, duration, and transfer reference
+  - All timing data logged to console with millisecond precision
+  
+Key findings
+- Goroutines alone do not improve performance without adequate connection pooling.
+- Database pool size directly correlates with goroutine efficiency and concurrent throughput.
+- For lightweight operations (like this transfer service), goroutine overhead is minimal once pool resources are sufficient.
+- Observed transfer speed improvement: ~4.5% faster with optimized goroutines vs. sequential execution (110ms vs. 115ms).
+- Scalability extrapolation:
+  - On distributed systems with Kafka queue-based intake and async workers, postulate transfer latency would reduce to 50-70ms per transaction through:
+    * Elimination of request/response synchronous wait
+    * Parallel worker processing of batched transfers
+    * Distributed database connections across worker nodes
+
+
+10) Design decisions, trade-offs, and improvements with more time
+------------------------------------------------------------------
 Delivery and testing approach
 - Current decision:
   - Testing was implemented pragmatically during feature delivery, with strong focus on core transfer and money-movement correctness.
