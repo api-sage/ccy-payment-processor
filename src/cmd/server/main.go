@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/api-sage/fcy-payment-processor/src/internal/adapter/http/controller"
@@ -38,70 +39,139 @@ func main() {
 	}
 	defer db.Close()
 
+	// Initialize repositories in parallel
+	var wg sync.WaitGroup
+	wg.Add(5)
+
+	var userRepoImpl *implementations.UserRepository
+	go func() {
+		defer wg.Done()
+		userRepoImpl = implementations.NewUserRepository(db)
+	}()
+
+	var accountRepoImpl *implementations.AccountRepository
+	go func() {
+		defer wg.Done()
+		accountRepoImpl = implementations.NewAccountRepository(db)
+	}()
+
+	var rateRepoImpl *implementations.RateRepository
+	go func() {
+		defer wg.Done()
+		rateRepoImpl = implementations.NewRateRepository(db)
+	}()
+
+	var transferRepoImpl *implementations.TransferRepository
+	go func() {
+		defer wg.Done()
+		transferRepoImpl = implementations.NewTransferRepository(db)
+	}()
+
+	var transientAccountRepoImpl *implementations.TransientAccountRepository
+	go func() {
+		defer wg.Done()
+		transientAccountRepoImpl = implementations.NewTransientAccountRepository(db)
+	}()
+
+	wg.Wait()
+
 	participantBankRepo := memory.NewParticipantBankRepository()
 
-	userRepo := implementations.NewUserRepository(db)
-	userService := services.NewUserService(userRepo)
-	userController := controller.NewUserController(userService)
-
-	accountRepo := implementations.NewAccountRepository(db)
-	accountService := services.NewAccountService(accountRepo, userRepo, participantBankRepo, cfg.GreyBankCode)
-	accountController := controller.NewAccountController(accountService)
-
-	participantBankService := services.NewParticipantBankService(participantBankRepo)
-	participantBankController := controller.NewParticipantBankController(participantBankService)
-
-	rateRepo := implementations.NewRateRepository(db)
-	if err := rateRepo.EnsureDefaultRates(ctx); err != nil {
+	// Ensure default rates before creating services
+	if err := rateRepoImpl.EnsureDefaultRates(ctx); err != nil {
 		log.Fatalf("ensure default rates: %v", err)
 	}
-	rateService := services.NewRateService(rateRepo)
-	rateController := controller.NewRateController(rateService)
 
-	chargesService := services.NewChargesService(
-		rateRepo,
-		cfg.ChargePercent,
-		cfg.VATPercent,
-		cfg.ChargeMinAmount,
-		cfg.ChargeMaxAmount,
-	)
-	chargesController := controller.NewChargesController(chargesService)
+	// Initialize services and controllers in parallel where possible
+	var wg2 sync.WaitGroup
+	wg2.Add(6)
 
-	transferRepo := implementations.NewTransferRepository(db)
-	transientAccountRepo := implementations.NewTransientAccountRepository(db)
-	if err := transientAccountRepo.EnsureInternalAccounts(
-		ctx,
-		cfg.InternalTransientAccountNumber,
-		cfg.InternalChargesAccountNumber,
-		cfg.InternalVATAccountNumber,
-		cfg.ExternalUSDGLAccountNumber,
-		cfg.ExternalGBPGLAccountNumber,
-		cfg.ExternalEURGLAccountNumber,
-		cfg.ExternalNGNGLAccountNumber,
-	); err != nil {
-		log.Fatalf("ensure transient accounts: %v", err)
-	}
-	transientAccountTransactionRepo := implementations.NewTransientAccountTransactionRepository(db)
-	transferService := services.NewTransferService(
-		transferRepo,
-		accountRepo,
-		transientAccountRepo,
-		transientAccountTransactionRepo,
-		participantBankRepo,
-		rateRepo,
-		userService,
-		rateService,
-		chargesService,
-		cfg.GreyBankCode,
-		cfg.InternalTransientAccountNumber,
-		cfg.InternalChargesAccountNumber,
-		cfg.InternalVATAccountNumber,
-		cfg.ExternalUSDGLAccountNumber,
-		cfg.ExternalGBPGLAccountNumber,
-		cfg.ExternalEURGLAccountNumber,
-		cfg.ExternalNGNGLAccountNumber,
-	)
-	transferController := controller.NewTransferController(transferService)
+	var userService *services.UserService
+	var userController *controller.UserController
+	go func() {
+		defer wg2.Done()
+		userService = services.NewUserService(userRepoImpl)
+		userController = controller.NewUserController(userService)
+	}()
+
+	var accountService *services.AccountService
+	var accountController *controller.AccountController
+	go func() {
+		defer wg2.Done()
+		accountService = services.NewAccountService(accountRepoImpl, userRepoImpl, participantBankRepo, cfg.GreyBankCode)
+		accountController = controller.NewAccountController(accountService)
+	}()
+
+	var participantBankService *services.ParticipantBankService
+	var participantBankController *controller.ParticipantBankController
+	go func() {
+		defer wg2.Done()
+		participantBankService = services.NewParticipantBankService(participantBankRepo)
+		participantBankController = controller.NewParticipantBankController(participantBankService)
+	}()
+
+	var rateService *services.RateService
+	var rateController *controller.RateController
+	go func() {
+		defer wg2.Done()
+		rateService = services.NewRateService(rateRepoImpl)
+		rateController = controller.NewRateController(rateService)
+	}()
+
+	var chargesService *services.ChargesService
+	var chargesController *controller.ChargesController
+	go func() {
+		defer wg2.Done()
+		chargesService = services.NewChargesService(
+			rateRepoImpl,
+			cfg.ChargePercent,
+			cfg.VATPercent,
+			cfg.ChargeMinAmount,
+			cfg.ChargeMaxAmount,
+		)
+		chargesController = controller.NewChargesController(chargesService)
+	}()
+
+	var transferController *controller.TransferController
+	go func() {
+		defer wg2.Done()
+		// Ensure transient accounts are set up first
+		if err := transientAccountRepoImpl.EnsureInternalAccounts(
+			ctx,
+			cfg.InternalTransientAccountNumber,
+			cfg.InternalChargesAccountNumber,
+			cfg.InternalVATAccountNumber,
+			cfg.ExternalUSDGLAccountNumber,
+			cfg.ExternalGBPGLAccountNumber,
+			cfg.ExternalEURGLAccountNumber,
+			cfg.ExternalNGNGLAccountNumber,
+		); err != nil {
+			log.Fatalf("ensure transient accounts: %v", err)
+		}
+		transientAccountTransactionRepo := implementations.NewTransientAccountTransactionRepository(db)
+		transferService := services.NewTransferService(
+			transferRepoImpl,
+			accountRepoImpl,
+			transientAccountRepoImpl,
+			transientAccountTransactionRepo,
+			participantBankRepo,
+			rateRepoImpl,
+			userService,
+			rateService,
+			chargesService,
+			cfg.GreyBankCode,
+			cfg.InternalTransientAccountNumber,
+			cfg.InternalChargesAccountNumber,
+			cfg.InternalVATAccountNumber,
+			cfg.ExternalUSDGLAccountNumber,
+			cfg.ExternalGBPGLAccountNumber,
+			cfg.ExternalEURGLAccountNumber,
+			cfg.ExternalNGNGLAccountNumber,
+		)
+		transferController = controller.NewTransferController(transferService)
+	}()
+
+	wg2.Wait()
 
 	mux := router.New(accountController, userController, participantBankController, rateController, chargesController, transferController, middleware.BasicAuth(cfg.ChannelID, cfg.ChannelKey))
 
