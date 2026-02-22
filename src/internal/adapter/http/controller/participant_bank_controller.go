@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -25,7 +23,7 @@ func NewParticipantBankController(service service_interfaces.ParticipantBankServ
 }
 
 func (c *ParticipantBankController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
-	handler := http.HandlerFunc(c.getParticipantBanks)
+	var handler http.Handler = http.HandlerFunc(c.getParticipantBanks)
 	if authMiddleware != nil {
 		handler = authMiddleware(handler)
 	}

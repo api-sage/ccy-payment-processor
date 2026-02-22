@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -25,7 +24,7 @@ func NewTransferController(service service_interfaces.TransferService) *Transfer
 }
 
 func (c *TransferController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
-	handler := http.HandlerFunc(c.transfer)
+	var handler http.Handler = http.HandlerFunc(c.transfer)
 	if authMiddleware != nil {
 		handler = authMiddleware(handler)
 	}

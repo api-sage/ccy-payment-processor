@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -13,7 +12,7 @@ import (
 )
 
 const (
-	createUserPath   = "/create-user"
+	createUserPath    = "/create-user"
 	verifyUserPinPath = "/verify-pin"
 )
 
@@ -26,8 +25,8 @@ func NewUserController(service service_interfaces.UserService) *UserController {
 }
 
 func (c *UserController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
-	createUserHandler := http.HandlerFunc(c.createUser)
-	verifyPinHandler := http.HandlerFunc(c.verifyUserPin)
+	var createUserHandler http.Handler = http.HandlerFunc(c.createUser)
+	var verifyPinHandler http.Handler = http.HandlerFunc(c.verifyUserPin)
 
 	if authMiddleware != nil {
 		createUserHandler = authMiddleware(createUserHandler)

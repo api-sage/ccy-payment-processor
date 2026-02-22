@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -28,9 +27,9 @@ func NewAccountController(service service_interfaces.AccountService) *AccountCon
 }
 
 func (c *AccountController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
-	createAccountHandler := http.HandlerFunc(c.createAccount)
-	getAccountHandler := http.HandlerFunc(c.getAccount)
-	depositFundsHandler := http.HandlerFunc(c.depositFunds)
+	var createAccountHandler http.Handler = http.HandlerFunc(c.createAccount)
+	var getAccountHandler http.Handler = http.HandlerFunc(c.getAccount)
+	var depositFundsHandler http.Handler = http.HandlerFunc(c.depositFunds)
 
 	if authMiddleware != nil {
 		createAccountHandler = authMiddleware(createAccountHandler)

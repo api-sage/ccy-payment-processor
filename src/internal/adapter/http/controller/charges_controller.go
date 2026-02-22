@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -27,7 +25,7 @@ func NewChargesController(service service_interfaces.ChargesService) *ChargesCon
 }
 
 func (c *ChargesController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
-	handler := http.HandlerFunc(c.getCharges)
+	var handler http.Handler = http.HandlerFunc(c.getCharges)
 	if authMiddleware != nil {
 		handler = authMiddleware(handler)
 	}

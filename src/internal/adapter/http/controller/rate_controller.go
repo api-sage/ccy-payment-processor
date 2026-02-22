@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -13,8 +12,8 @@ import (
 )
 
 const (
-	getRatesPath        = "/get-rates"
-	getRatePath         = "/get-rate"
+	getRatesPath         = "/get-rates"
+	getRatePath          = "/get-rate"
 	convertFCYAmountPath = "/convert-fcy-amount"
 )
 
@@ -27,9 +26,9 @@ func NewRateController(service service_interfaces.RateService) *RateController {
 }
 
 func (c *RateController) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
-	getRatesHandler := http.HandlerFunc(c.getRates)
-	getRateHandler := http.HandlerFunc(c.getRate)
-	getCcyRatesHandler := http.HandlerFunc(c.getCcyRates)
+	var getRatesHandler http.Handler = http.HandlerFunc(c.getRates)
+	var getRateHandler http.Handler = http.HandlerFunc(c.getRate)
+	var getCcyRatesHandler http.Handler = http.HandlerFunc(c.getCcyRates)
 
 	if authMiddleware != nil {
 		getRatesHandler = authMiddleware(getRatesHandler)
